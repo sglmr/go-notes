@@ -1,4 +1,11 @@
+.github/
+.gitignore
+.golangci.yml
+LICENSE
+Procfile
 README.md
 .git
-.gitignore
-LICENSE
+Taskfile.yml
+
+
+
