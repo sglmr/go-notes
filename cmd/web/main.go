@@ -90,11 +90,11 @@ func RunApp(
 	devMode := fs.Bool("dev", false, "Development mode. Displays stack trace & more verbose logging")
 	username := fs.String("username", "admin", "Username basic auth")
 	password := fs.String("password", `$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O`, "Password for basic auth ('password' by default)")
-	smtpHost := fs.String("smtp-host", "", "Email smtp host")
-	smtpPort := fs.Int("smtp-port", 25, "Email smtp port")
-	smtpUsername := fs.String("smtp-username", "", "Email smtp username")
-	smtpPassword := fs.String("smtp-password", "", "Email smtp password")
-	smtpFrom := fs.String("smtp-from", "Eample Name <no-reply@example.com>", "Email smtp Sender")
+	_ = fs.String("smtp-host", "", "Email smtp host")
+	_ = fs.Int("smtp-port", 25, "Email smtp port")
+	_ = fs.String("smtp-username", "", "Email smtp username")
+	_ = fs.String("smtp-password", "", "Email smtp password")
+	_ = fs.String("smtp-from", "Eample Name <no-reply@example.com>", "Email smtp Sender")
 
 	// Parse the flags
 	err := fs.Parse(args[1:])
@@ -127,12 +127,13 @@ func RunApp(
 		// Configure email to send to log
 		mailer = email.NewLogMailer(logger)
 	default:
+		mailer = email.NewLogMailer(logger)
 		// Configure a mailer to send real emails
-		mailer, err = email.NewMailer(*smtpHost, *smtpPort, *smtpUsername, *smtpPassword, *smtpFrom)
-		if err != nil {
-			logger.Error("smtp configuration error", "error", err)
-			return fmt.Errorf("smtp mailer setup failed: %w", err)
-		}
+		// mailer, err = email.NewMailer(*smtpHost, *smtpPort, *smtpUsername, *smtpPassword, *smtpFrom)
+		// if err != nil {
+		// logger.Error("smtp configuration error", "error", err)
+		// return fmt.Errorf("smtp mailer setup failed: %w", err)
+		// }
 	}
 
 	// Session manager configuration
