@@ -244,6 +244,7 @@ func AddRoutes(
 	mux.Handle("GET /static/", CacheControlMW("31536000")(fileServer))
 
 	mux.Handle("GET /", home(logger, devMode, sessionManager))
+	mux.Handle("GET /create/", createNote(logger, devMode, sessionManager))
 	// TODO: Figure out how to wrap this with nosurf
 	c := contact(logger, devMode, wg, mailer, sessionManager)
 	mux.Handle("GET /contact/", CsrfMW(c))
@@ -255,7 +256,7 @@ func AddRoutes(
 
 	// Add recoverPanic middleware
 	handler := RecoverPanicMW(mux, logger, devMode)
-	handler = SecureHeadersMW(handler)
+	// handler = SecureHeadersMW(handler)
 	handler = LogRequestMW(logger)(handler)
 	handler = sessionManager.LoadAndSave(handler)
 
@@ -315,6 +316,22 @@ func home(
 		data := newTemplateData(r, sessionManager)
 
 		if err := render.Page(w, http.StatusOK, data, "home.tmpl"); err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+	}
+}
+
+// createNote displays an editor for new notes
+func createNote(
+	logger *slog.Logger,
+	showTrace bool,
+	sessionManager *scs.SessionManager,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data := newTemplateData(r, sessionManager)
+
+		if err := render.Page(w, http.StatusOK, data, "createNote.tmpl"); err != nil {
 			ServerError(w, r, err, logger, showTrace)
 			return
 		}
