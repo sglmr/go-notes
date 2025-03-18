@@ -1,7 +1,7 @@
 -- Create the notes table
 CREATE TABLE notes (
     id BIGSERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
     note TEXT NOT NULL DEFAULT '',
     archive BOOLEAN NOT NULL DEFAULT FALSE,
     favorite BOOLEAN NOT NULL DEFAULT FALSE, 

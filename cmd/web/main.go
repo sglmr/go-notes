@@ -273,8 +273,11 @@ func AddRoutes(
 	mux.Handle("GET /", home(logger, devMode, sessionManager))
 	mux.Handle("GET /list/", listNotes(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /note/{id}/", viewNote(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /new/", noteForm(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /note/{id}/edit/", noteForm(logger, devMode, sessionManager, queries))
+	mux.Handle("GET /new/", noteFormGet(logger, devMode, sessionManager, queries))
+	mux.Handle("GET /note/{id}/edit/", noteFormGet(logger, devMode, sessionManager, queries))
+
+	mux.Handle("POST /new/", noteFormPOST(logger, devMode, sessionManager, queries))
+	mux.Handle("POST /note/{id}/edit/", noteFormPOST(logger, devMode, sessionManager, queries))
 
 	mux.Handle("GET /health/", health())
 
@@ -323,13 +326,6 @@ func BadRequest(w http.ResponseWriter, r *http.Request, err error) {
 // Routes/Views/HTTP handlers
 //=============================================================================
 
-// favicon returns the favicon.ico for the file
-func favicon() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("hi"))
-	}
-}
-
 // home handles the root route
 func home(
 	logger *slog.Logger,
@@ -366,12 +362,31 @@ func listNotes(
 		// Create a new template data file
 		data := newTemplateData(r, sessionManager)
 
-		// Query for a list of notes
-		notes, err := queries.ListNotes(r.Context())
-		if err != nil {
-			ServerError(w, r, err, logger, showTrace)
-			return
+		// Check if there is a search query parameter
+		q := r.URL.Query().Get("q")
+		data["Query"] = q
+		logger.Debug("list notes", "query", q)
+
+		var notes []db.Note
+		if len(q) == 0 {
+			// List of all notes
+			n, err := queries.ListNotes(r.Context())
+			if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+			notes = n
+		} else {
+			// Search for notes
+			n, err := queries.SearchNotes(r.Context(), q)
+			if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+			notes = n
 		}
+
+		logger.Debug("list notes", "count", len(notes))
 
 		// Add the notes data to the template data map
 		data["Notes"] = notes
@@ -424,14 +439,14 @@ func viewNote(
 	}
 }
 
-// noteForm displays an editor for creating or updating notes
-func noteForm(
+// noteFormGet displays an editor for creating or updating notes
+func noteFormGet(
 	logger *slog.Logger,
 	showTrace bool,
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
 ) http.HandlerFunc {
-	type NoteForm struct {
+	type noteForm struct {
 		Title     string
 		Note      string
 		Favorite  bool
@@ -441,7 +456,7 @@ func noteForm(
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		data := newTemplateData(r, sessionManager)
-		form := NoteForm{
+		form := noteForm{
 			Title:     "",
 			Note:      "",
 			Favorite:  false,
@@ -454,7 +469,7 @@ func noteForm(
 		var id int64
 		id, err := strconv.ParseInt(idStr, 10, 64)
 		if err != nil && len(idStr) > 0 {
-			logger.Debug("noteForm strconv error", "error", err, "id", idStr)
+			logger.Debug("noteFormGet strconv error", "error", err, "id", idStr)
 			NotFound(w, r)
 			return
 		}
@@ -473,7 +488,7 @@ func noteForm(
 			data["Note"] = note
 
 			// Fill in the form with the Note data
-			form = NoteForm{
+			form = noteForm{
 				Title:     note.Title,
 				Note:      note.Note,
 				Favorite:  note.Favorite,
@@ -481,13 +496,6 @@ func noteForm(
 				CreatedAt: note.CreatedAt,
 			}
 		}
-
-		// Make some issues
-		form.AddError("Title", "title error")
-		form.AddError("Note", "Note issue")
-		form.AddError("Favorite", "Favorite gotta be bool")
-		form.AddError("Archive", "Archive error")
-		form.AddError("CreatedAt", "Why you mess this up?")
 
 		// Populate the Form Data
 		data["Form"] = form
@@ -497,6 +505,125 @@ func noteForm(
 			ServerError(w, r, err, logger, showTrace)
 			return
 		}
+	}
+}
+
+// noteFormPost handles POST requests to update or create notes
+func noteFormPOST(
+	logger *slog.Logger,
+	showTrace bool,
+	sessionManager *scs.SessionManager,
+	queries *db.Queries,
+) http.HandlerFunc {
+	type noteForm struct {
+		Title     string
+		Note      string
+		Favorite  bool
+		Archive   bool
+		CreatedAt time.Time
+		Validator
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Return Bad Request if the form data is not parseable
+		if err := r.ParseForm(); err != nil {
+			BadRequest(w, r, err)
+			return
+		}
+
+		// Create a new template data for a future response
+		data := newTemplateData(r, sessionManager)
+
+		// Check if there is an id value in the url path
+		idStr := r.PathValue("id")
+		var id int64
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil && len(idStr) > 0 {
+			logger.Debug("noteFormGet strconv error", "error", err, "id", idStr)
+			NotFound(w, r)
+			return
+		}
+
+		// Query for a single note if there is an id
+		var note db.Note
+		if id > 0 {
+			note, err = queries.GetNote(r.Context(), id)
+			if errors.Is(err, pgx.ErrNoRows) {
+				NotFound(w, r)
+				return
+			} else if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+		}
+
+		// Parse out the note form data
+		form := noteForm{}
+		form.Title = r.FormValue("title")
+		form.Archive = r.FormValue("archive") != ""
+		form.Favorite = r.FormValue("favorite") != ""
+		form.Note = r.FormValue("note")
+
+		// Convert the value to time.Time
+		form.CreatedAt, err = time.Parse("2006-01-02T15:04", r.FormValue("created_at"))
+		if err != nil {
+			form.AddError("CreatedAt", "invalid date time")
+			form.CreatedAt = time.Now()
+		}
+
+		// If title is blank, use the first line of the note content
+		if form.Title == "" {
+			t := strings.SplitN(form.Note, "\n", 1)[0]
+			form.Title = strings.TrimSpace(t)
+		}
+
+		// Validate the form fields
+		form.Check(NotBlank(form.Title), "Title", "title is required")
+		form.Check(NotBlank(form.Note), "Note", "note content is required")
+		form.Check(!form.CreatedAt.IsZero(), "CreatedAt", "must be a valid date time")
+
+		// Return the form data and re-render the form page if there are any errors
+		if form.HasErrors() {
+			data["Form"] = form
+			if err := render.Page(w, http.StatusBadRequest, data, "noteForm.tmpl"); err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+		}
+
+		if note.ID > 0 {
+			// Update an existing Note
+			params := db.UpdateNoteParams{
+				ID:        note.ID,
+				Title:     form.Title,
+				Note:      form.Note,
+				Archive:   form.Archive,
+				Favorite:  form.Favorite,
+				CreatedAt: form.CreatedAt,
+			}
+			note, err = queries.UpdateNote(r.Context(), params)
+			if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+		} else {
+			// Create a new note
+			params := db.CreateNoteParams{
+				Title:     form.Title,
+				Note:      form.Note,
+				Favorite:  form.Favorite,
+				CreatedAt: form.CreatedAt,
+			}
+			note, err = queries.CreateNote(r.Context(), params)
+			if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+		}
+
+		// Note created or updated successfully, redirect to view the note
+		url := fmt.Sprintf("/note/%v/", note.ID)
+		http.Redirect(w, r, url, http.StatusSeeOther)
+		return
 	}
 }
 

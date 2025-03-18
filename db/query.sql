@@ -19,7 +19,8 @@ from notes
 where archive = TRUE
 order by modified_at desc;
 -- name: ListAllNotes :many
-select * from notes
+select *
+from notes
 order by modified_at desc;
 -- name: CreateNote :one
 insert into notes (
@@ -45,3 +46,12 @@ returning *;
 -- name: DeleteNote :exec
 delete from notes
 where id = $1;
+-- name: SearchNotes :many
+SELECT *
+FROM notes
+WHERE (title || ' ' || note) ILIKE '%' || @query::text || '%'
+ORDER BY CASE
+        WHEN title ILIKE '%' || @query::text || '%' THEN 0
+        ELSE 1
+    END,
+    modified_at DESC;

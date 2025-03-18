@@ -3,6 +3,11 @@
 {{define "page:main"}}
 <h1>Notes</h1>
 
+<form method="GET" action="" style="max-width:33vw">
+    <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Query}}">
+    <input type="submit" value="Search">
+</form>
+
 {{if .Notes}}
 <ul>
     {{range .Notes}}

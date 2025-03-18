@@ -18,10 +18,12 @@ var printer = message.NewPrinter(language.English)
 
 var TemplateFuncs = template.FuncMap{
 	// Time functions
-	"now":        time.Now,
-	"timeSince":  time.Since,
-	"timeUntil":  time.Until,
-	"formatTime": formatTime,
+	"now":          time.Now,
+	"timeSince":    time.Since,
+	"timeUntil":    time.Until,
+	"formatTime":   formatTime,
+	"shortDate":    shortDate,
+	"longDateTime": longDateTime,
 
 	// String functions
 	"uppercase": strings.ToUpper,
@@ -44,8 +46,19 @@ var TemplateFuncs = template.FuncMap{
 	"urlDelParam": urlDelParam,
 }
 
+// formatTime returns a string formatted version of a time.Time
 func formatTime(format string, t time.Time) string {
 	return t.Format(format)
+}
+
+// longDateTime returns a long formatted date time string
+func longDateTime(t time.Time) string {
+	return formatTime("January 2, 2006, 3:04 pm", t)
+}
+
+// shortDate returns a short formatted date string
+func shortDate(t time.Time) string {
+	return formatTime("2006-01-02", t)
 }
 
 // slugify converts a string into a URL-friendly slug.

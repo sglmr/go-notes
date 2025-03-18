@@ -4,12 +4,12 @@
 <article>
     <header>
         <h1>{{.Note.Title}}</h1>
-        <div>Created: {{.Note.CreatedAt|timeSince}}</div>
-        <div>Modified: {{.Note.ModifiedAt|timeSince}}</div>
+        <div>Created: {{.Note.CreatedAt|longDateTime}}</div>
+        <div>Modified: {{.Note.ModifiedAt|longDateTime}}</div>
  
         <div role="group" style="max-width:10ch;">
-            <a role="button" href="/{{.Note.ID}}/edit/">Edit</a>
-            <a role="button" class="outline" href="/{{.Note.ID}}/delete/">Delete</a>
+            <a role="button" href="/note/{{.Note.ID}}/edit/">Edit</a>
+            <a role="button" class="outline" href="/note/{{.Note.ID}}/delete/">Delete</a>
         </div>
     </header>
     <div class="container">

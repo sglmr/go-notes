@@ -83,12 +83,48 @@ func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
 }
 
 const listAllNotes = `-- name: ListAllNotes :many
-select id, title, note, archive, favorite, created_at, modified_at from notes
+select id, title, note, archive, favorite, created_at, modified_at
+from notes
 order by modified_at desc
 `
 
 func (q *Queries) ListAllNotes(ctx context.Context) ([]Note, error) {
 	rows, err := q.db.Query(ctx, listAllNotes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Note
+	for rows.Next() {
+		var i Note
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Note,
+			&i.Archive,
+			&i.Favorite,
+			&i.CreatedAt,
+			&i.ModifiedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArchivedNotes = `-- name: ListArchivedNotes :many
+select id, title, note, archive, favorite, created_at, modified_at
+from notes
+where archive = TRUE
+order by modified_at desc
+`
+
+func (q *Queries) ListArchivedNotes(ctx context.Context) ([]Note, error) {
+	rows, err := q.db.Query(ctx, listArchivedNotes)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +195,45 @@ order by modified_at desc
 
 func (q *Queries) ListNotes(ctx context.Context) ([]Note, error) {
 	rows, err := q.db.Query(ctx, listNotes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Note
+	for rows.Next() {
+		var i Note
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Note,
+			&i.Archive,
+			&i.Favorite,
+			&i.CreatedAt,
+			&i.ModifiedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchNotes = `-- name: SearchNotes :many
+SELECT id, title, note, archive, favorite, created_at, modified_at
+FROM notes
+WHERE (title || ' ' || note) ILIKE '%' || $1::text || '%'
+ORDER BY CASE
+        WHEN title ILIKE '%' || $1::text || '%' THEN 0
+        ELSE 1
+    END,
+    modified_at DESC
+`
+
+func (q *Queries) SearchNotes(ctx context.Context, query string) ([]Note, error) {
+	rows, err := q.db.Query(ctx, searchNotes, query)
 	if err != nil {
 		return nil, err
 	}
