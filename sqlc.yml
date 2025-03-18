@@ -1,0 +1,20 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "db/query.sql"
+    schema: "assets/migrations"
+    gen:
+      go:
+        package: "db"
+        sql_package: "pgx/v5"
+        out: "db"
+        emit_pointers_for_null_types: true
+        overrides:
+        - db_type: "timestamptz"
+          nullable: false
+          go_type:
+            type: "time.Time"
+        - db_type: "timestamptz"
+          nullable: true
+          go_type:
+            type: "*time.Time"

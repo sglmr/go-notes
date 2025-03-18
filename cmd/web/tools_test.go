@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"html"
 	"io"
 	"log/slog"
@@ -9,13 +10,17 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sglmr/gowebstart/db"
 	"github.com/sglmr/gowebstart/internal/email"
 )
 
@@ -27,6 +32,26 @@ type testServer struct {
 func newTestServer(t *testing.T) *testServer {
 	// Create a new serve mux
 	mux := http.NewServeMux()
+
+	ctx := context.Background()
+
+	// Connect to the PostgreSQL database
+	dbpool, err := pgxpool.New(ctx, os.Getenv("NOTES_TEST_DB_DSN"))
+	if err != nil {
+		t.Fatalf("connecting to postgres: %w", err)
+	}
+	defer dbpool.Close()
+
+	// Ping the database, timeout after 5 seconds
+	pingCtx, pingCancel := context.WithTimeout(ctx, time.Second*5)
+	defer pingCancel()
+
+	if err = dbpool.Ping(pingCtx); err != nil {
+		t.Fatalf("pinging postgres: %w", err)
+	}
+
+	// Create a new database queries object
+	queries := db.New(dbpool)
 
 	// Create an io.Discard logger for testing
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
@@ -45,7 +70,7 @@ func newTestServer(t *testing.T) *testServer {
 	wg := sync.WaitGroup{}
 
 	// Create the httpHandler
-	handler := AddRoutes(mux, logger, false, mailer, username, password, &wg, sessionManager)
+	handler := AddRoutes(mux, logger, false, mailer, username, password, &wg, sessionManager, queries)
 
 	// Initialize a new test server
 	ts := httptest.NewTLSServer(handler)

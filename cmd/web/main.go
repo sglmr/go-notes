@@ -24,6 +24,10 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/sglmr/gowebstart/db"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/alexedwards/scs/v2"
 	"github.com/justinas/nosurf"
 	"github.com/sglmr/gowebstart/assets"
@@ -58,13 +62,14 @@ func NewServer(
 	username, password string,
 	wg *sync.WaitGroup,
 	sessionManager *scs.SessionManager,
+	queries *db.Queries,
 ) http.Handler {
 	// Create a serve mux
 	logger.Debug("creating server")
 	mux := http.NewServeMux()
 
 	// Register the home handler for the root route
-	httpHandler := AddRoutes(mux, logger, devMode, mailer, username, password, wg, sessionManager)
+	httpHandler := AddRoutes(mux, logger, devMode, mailer, username, password, wg, sessionManager, queries)
 
 	return httpHandler
 }
@@ -90,6 +95,7 @@ func RunApp(
 	devMode := fs.Bool("dev", false, "Development mode. Displays stack trace & more verbose logging")
 	username := fs.String("username", "admin", "Username basic auth")
 	password := fs.String("password", `$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O`, "Password for basic auth ('password' by default)")
+	pgdsn := fs.String("db-dsn", os.Getenv("NOTES_DB_DSN"), "PostgreSQL DSN")
 	_ = fs.String("smtp-host", "", "Email smtp host")
 	_ = fs.Int("smtp-port", 25, "Email smtp port")
 	_ = fs.String("smtp-username", "", "Email smtp username")
@@ -99,8 +105,26 @@ func RunApp(
 	// Parse the flags
 	err := fs.Parse(args[1:])
 	if err != nil {
-		return fmt.Errorf("error parsing flags: %w", err)
+		return fmt.Errorf("parsing flags: %w", err)
 	}
+
+	// Connect to the PostgreSQL database
+	dbpool, err := pgxpool.New(ctx, *pgdsn)
+	if err != nil {
+		return fmt.Errorf("connecting to postgres: %w", err)
+	}
+	defer dbpool.Close()
+
+	// Ping the database, timeout after 5 seconds
+	pingCtx, pingCancel := context.WithTimeout(ctx, time.Second*5)
+	defer pingCancel()
+
+	if err = dbpool.Ping(pingCtx); err != nil {
+		return fmt.Errorf("pinging postgres: %w", err)
+	}
+
+	// Create a new database queries object
+	queries := db.New(dbpool)
 
 	// Get port from environment
 	if *port == "" {
@@ -141,7 +165,7 @@ func RunApp(
 	sessionManager.Lifetime = 24 * time.Hour
 
 	// Set up router
-	srv := NewServer(logger, *devMode, mailer, *username, *password, &wg, sessionManager)
+	srv := NewServer(logger, *devMode, mailer, *username, *password, &wg, sessionManager, queries)
 
 	// Configure an http server
 	httpServer := &http.Server{
@@ -237,6 +261,7 @@ func AddRoutes(
 	username, password string,
 	wg *sync.WaitGroup,
 	sessionManager *scs.SessionManager,
+	queries *db.Queries,
 ) http.Handler {
 	// Set up file server for embedded static files
 	// fileserver := http.FileServer(http.FS(assets.EmbeddedFiles))
