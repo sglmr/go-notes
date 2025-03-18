@@ -13,6 +13,11 @@ select *
 from notes
 where favorite = TRUE
 order by modified_at desc;
+-- name: ListArchivedNotes :many
+select *
+from notes
+where archive = TRUE
+order by modified_at desc;
 -- name: ListAllNotes :many
 select * from notes
 order by modified_at desc;

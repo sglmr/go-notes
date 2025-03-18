@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/sglmr/gowebstart/db"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/alexedwards/scs/v2"
@@ -269,13 +271,12 @@ func AddRoutes(
 	mux.Handle("GET /static/", CacheControlMW("31536000")(fileServer))
 
 	mux.Handle("GET /", home(logger, devMode, sessionManager))
-	mux.Handle("GET /create/", createNote(logger, devMode, sessionManager))
-	// TODO: Figure out how to wrap this with nosurf
-	c := contact(logger, devMode, wg, mailer, sessionManager)
-	mux.Handle("GET /contact/", CsrfMW(c))
-	mux.Handle("POST /contact/", CsrfMW(c))
+	mux.Handle("GET /list/", listNotes(logger, devMode, sessionManager, queries))
+	mux.Handle("GET /note/{id}/", viewNote(logger, devMode, sessionManager, queries))
+	mux.Handle("GET /new/", noteForm(logger, devMode, sessionManager, queries))
+	mux.Handle("GET /note/{id}/edit/", noteForm(logger, devMode, sessionManager, queries))
+
 	mux.Handle("GET /health/", health())
-	mux.Handle("GET /send-mail", sendEmail(mailer, logger, wg))
 
 	mux.Handle("GET /protected/", BasicAuthMW(username, password, logger, devMode)(protected()))
 
@@ -322,6 +323,13 @@ func BadRequest(w http.ResponseWriter, r *http.Request, err error) {
 // Routes/Views/HTTP handlers
 //=============================================================================
 
+// favicon returns the favicon.ico for the file
+func favicon() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hi"))
+	}
+}
+
 // home handles the root route
 func home(
 	logger *slog.Logger,
@@ -347,16 +355,145 @@ func home(
 	}
 }
 
-// createNote displays an editor for new notes
-func createNote(
+// listNotes displays a list of all the notes
+func listNotes(
 	logger *slog.Logger,
 	showTrace bool,
 	sessionManager *scs.SessionManager,
+	queries *db.Queries,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Create a new template data file
 		data := newTemplateData(r, sessionManager)
 
-		if err := render.Page(w, http.StatusOK, data, "createNote.tmpl"); err != nil {
+		// Query for a list of notes
+		notes, err := queries.ListNotes(r.Context())
+		if err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+
+		// Add the notes data to the template data map
+		data["Notes"] = notes
+
+		// Render the page
+		if err := render.Page(w, http.StatusOK, data, "listNotes.tmpl"); err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+	}
+}
+
+// viewNote displays a single note
+func viewNote(
+	logger *slog.Logger,
+	showTrace bool,
+	sessionManager *scs.SessionManager,
+	queries *db.Queries,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Create a new template data file
+		data := newTemplateData(r, sessionManager)
+
+		// Check if there is an id value for the note
+		idStr := r.PathValue("id")
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			logger.Debug("viewNote strconv error", "error", err, "id", idStr)
+			NotFound(w, r)
+		}
+
+		// Query for a single note
+		note, err := queries.GetNote(r.Context(), id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			NotFound(w, r)
+			return
+		} else if err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+
+		// Add the note data to the template data map
+		data["Note"] = note
+
+		// Render the page
+		if err := render.Page(w, http.StatusOK, data, "viewNote.tmpl"); err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+	}
+}
+
+// noteForm displays an editor for creating or updating notes
+func noteForm(
+	logger *slog.Logger,
+	showTrace bool,
+	sessionManager *scs.SessionManager,
+	queries *db.Queries,
+) http.HandlerFunc {
+	type NoteForm struct {
+		Title     string
+		Note      string
+		Favorite  bool
+		Archive   bool
+		CreatedAt time.Time
+		Validator
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		data := newTemplateData(r, sessionManager)
+		form := NoteForm{
+			Title:     "",
+			Note:      "",
+			Favorite:  false,
+			Archive:   false,
+			CreatedAt: time.Now(),
+		}
+
+		// Check if there is an id value in the url path
+		idStr := r.PathValue("id")
+		var id int64
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil && len(idStr) > 0 {
+			logger.Debug("noteForm strconv error", "error", err, "id", idStr)
+			NotFound(w, r)
+			return
+		}
+
+		// Query for a single note if there is an id
+		if id > 0 {
+			note, err := queries.GetNote(r.Context(), id)
+			if errors.Is(err, pgx.ErrNoRows) {
+				NotFound(w, r)
+				return
+			} else if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+
+			data["Note"] = note
+
+			// Fill in the form with the Note data
+			form = NoteForm{
+				Title:     note.Title,
+				Note:      note.Note,
+				Favorite:  note.Favorite,
+				Archive:   note.Archive,
+				CreatedAt: note.CreatedAt,
+			}
+		}
+
+		// Make some issues
+		form.AddError("Title", "title error")
+		form.AddError("Note", "Note issue")
+		form.AddError("Favorite", "Favorite gotta be bool")
+		form.AddError("Archive", "Archive error")
+		form.AddError("CreatedAt", "Why you mess this up?")
+
+		// Populate the Form Data
+		data["Form"] = form
+
+		// Render the page
+		if err := render.Page(w, http.StatusOK, data, "noteForm.tmpl"); err != nil {
 			ServerError(w, r, err, logger, showTrace)
 			return
 		}
@@ -429,22 +566,6 @@ func contact(
 			ServerError(w, r, err, logger, showTrace)
 			return
 		}
-	}
-}
-
-// sendEmail sends out a background email task
-func sendEmail(mailer email.MailerInterface, logger *slog.Logger, wg *sync.WaitGroup) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprint(w, "Email queued")
-		emailData := map[string]any{
-			"Name": "Person",
-		}
-		BackgroundTask(
-			wg, logger,
-			func() error {
-				return mailer.Send("Recipient <recipient@example.com>", "Reply-To <reply-to@example.com>", emailData, "example.tmpl")
-			})
 	}
 }
 

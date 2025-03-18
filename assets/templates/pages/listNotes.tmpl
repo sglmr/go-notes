@@ -1,0 +1,16 @@
+{{define "page:title"}}Notes{{end}}
+
+{{define "page:main"}}
+<h1>Notes</h1>
+
+{{if .Notes}}
+<ul>
+    {{range .Notes}}
+    <li>{{.CreatedAt|formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a></li>
+    {{end}}
+</ul>
+{{else}}
+<p>No Notes</p>
+{{end}}
+
+{{end}}

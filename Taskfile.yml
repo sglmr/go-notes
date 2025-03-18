@@ -4,6 +4,7 @@ version: '3'
 
 vars:
   MIGRATIONS_DIR: ./assets/migrations
+  PORT: 8001
 
 tasks:
 
@@ -70,7 +71,7 @@ tasks:
     desc: Run the go app
     deps: [build]
     cmds:
-      - /tmp/bin/web -dev
+      - /tmp/bin/web -dev -port={{.PORT}}
   
   run:live:
     desc: Run the application with reloading on file changes

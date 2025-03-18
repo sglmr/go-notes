@@ -1,0 +1,104 @@
+{{define "page:title"}}Note Editor{{end}}
+
+{{define "page:main"}}
+
+<article>
+    {{if .Form.Title}}
+    <h1>Editing: {{.Form.Title}}</h1>
+    {{else}}
+    <h1>New Note</h1>
+    {{end}}
+
+    {{if .Form.HasErrors}}
+    <p style="max-width:400px;color:red;">Please correct the errors below.</p>
+    {{end}}
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        <fieldset>
+            <div>
+                <label for="title">Title
+                    {{if .Form.Errors.Title}}
+                    <small style="color:red;">{{.Form.Errors.Title}}</small>
+                    {{end}}
+                </label>
+                <input type="text" id="title" name="title" placeholder="Note title" value="{{.Form.Title}}">
+
+            </div>
+
+            <div style="max-width:30ch">
+                <label for="created_at">Created
+
+                    {{if .Form.Errors.CreatedAt}}
+                    <small style="color:red;">{{.Form.Errors.CreatedAt}}</small>
+                    {{end}}
+                </label>
+                <input type="datetime-local" id="created_at" name="created_at"
+                    value="{{.Form.CreatedAt|formatTime `2006-01-02T15:04`}}">
+
+            </div>
+
+            <div>
+                <label for="favorite">
+                    <input type="checkbox" id="favorite" name="favorite" role="switch" {{if
+                        .Form.Favorite}}checked{{end}}>
+                    Favorite
+                    {{if .Form.Errors.Favorite}}
+                    <span style="color:red;"><small>{{.Form.Errors.Favorite}}</small></span>
+                    {{end}}
+                </label>
+
+            </div>
+
+            <div>
+                <label for="archive">
+                    <input type="checkbox" id="archive" name="archive" role="switch" {{if .Form.Archive}}checked{{end}}>
+                    Archive
+                    {{if .Form.Errors.Archive}}
+                    <span style="color:red;"><small>{{.Form.Errors.Archive}}</small></span>
+                    {{end}}
+                </label>
+
+            </div>
+        </fieldset>
+
+        <fieldset>
+            <label for="note">Note
+                {{if .Form.Errors.Note}}
+                <small style="color:red;">{{.Form.Errors.Note}}</small>
+                {{end}}
+            </label>
+            <textarea id="note" name="note" placeholder="Note content...">{{.Form.Note}}</textarea>
+        </fieldset>
+
+
+        <input type="submit" value="Submit">
+    </form>
+</article>
+
+<!-- EasyMDE -->
+<link rel="stylesheet" href="/static/css/easymde.min.css?version={{.Version}}">
+<script src="/static/js/easymde.min.js?version={{.Version}}"></script>
+<style>
+    .editor-toolbar>button {
+        color: inherit
+    }
+</style>
+<script>
+    const easyMDE = new EasyMDE({
+        autofocus: false,
+        autosave: {
+            enabled: false,
+            uniqueId: "note-{{.Note.ID}}",
+        },
+        autoDownloadFontAwesome: true,
+        element: document.getElementById('note'),
+        indentWithTabs: false,
+        placeholder: "Note content...",
+        shortcuts: {},
+        spellChecker: false,
+        unorderedListStyle: "-",
+
+    });
+</script>
+{{end}}
