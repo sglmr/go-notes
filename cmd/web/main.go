@@ -98,6 +98,7 @@ func RunApp(
 	username := fs.String("username", "admin", "Username basic auth")
 	password := fs.String("password", `$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O`, "Password for basic auth ('password' by default)")
 	pgdsn := fs.String("db-dsn", os.Getenv("NOTES_DB_DSN"), "PostgreSQL DSN")
+	migrate := fs.Bool("automigrate", false, "Automatically perform up migrations on startup")
 	_ = fs.String("smtp-host", "", "Email smtp host")
 	_ = fs.Int("smtp-port", 25, "Email smtp port")
 	_ = fs.String("smtp-username", "", "Email smtp username")
@@ -127,6 +128,11 @@ func RunApp(
 
 	// Create a new database queries object
 	queries := db.New(dbpool)
+
+	// Perform up migrations
+	if *migrate {
+		db.MigrateUp(*pgdsn)
+	}
 
 	// Get port from environment
 	if *port == "" {

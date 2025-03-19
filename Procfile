@@ -1,1 +1,1 @@
-web: ./web
+web: ./web -automigrate -db-dsn=$DATABASE_URL -port=$PORT
