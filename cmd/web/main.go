@@ -131,7 +131,10 @@ func RunApp(
 
 	// Perform up migrations
 	if *migrate {
-		db.MigrateUp(*pgdsn)
+		err = db.MigrateUp(*pgdsn)
+		if err != nil {
+			return fmt.Errorf("migrate up failed: %w", err)
+		}
 	}
 
 	// Get port from environment

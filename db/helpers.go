@@ -28,7 +28,7 @@ func MigrateUp(dsn string) error {
 	}
 
 	// Create an in-memory file system driver that can read the embedded migration files
-	iofsDriver, err := iofs.New(assets.EmbeddedFiles, "migrations")
+	iofsDriver, err := iofs.New(assets.EmbeddedFiles, "/migrations")
 	if err != nil {
 		return fmt.Errorf("failed creating io/fs driver: %w", err)
 	}
