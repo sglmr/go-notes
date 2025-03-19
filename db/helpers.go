@@ -1,51 +1,46 @@
 package db
 
 import (
-	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/sglmr/gowebstart/assets"
 )
 
-// MigrateUp performs all the available Up migrations on the database with golang-migrate.
-func MigrateUp(dsn string) error {
-	// Open connection to database
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return fmt.Errorf("failed migration db connection: %w", err)
-	}
-	defer db.Close()
+// MigrateUp performs all the available Up migrations on the PostgreSQL database with golang-migrate.
+func MigrateUp(conn *pgxpool.Pool) error {
+	// Convert pgx connection to sql.DB
+	db := stdlib.OpenDBFromPool(conn)
 
-	// Create a new postgres driver for migrations
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	// Create a driver for golang-migrate
+	dbDriver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return fmt.Errorf("failed creating pg driver: %w", err)
+		return err
 	}
 
 	// Create an in-memory file system driver that can read the embedded migration files
-	iofsDriver, err := iofs.New(assets.EmbeddedFiles, "/migrations")
+	iofsDriver, err := iofs.New(assets.EmbeddedFiles, "migrations")
 	if err != nil {
-		return fmt.Errorf("failed creating io/fs driver: %w", err)
+		return err
 	}
 
 	// Create a new migrate instance
-	migrator, err := migrate.NewWithInstance("iofs", iofsDriver, "postgres", driver)
+	migrator, err := migrate.NewWithInstance("iofs", iofsDriver, "postgres", dbDriver)
 	if err != nil {
-		return fmt.Errorf("failed creating migrate instance: %w", err)
+		return err
 	}
 
 	// Apply all the available up migrations
 	err = migrator.Up()
 	switch {
 	case errors.Is(err, migrate.ErrNoChange):
-		return nil
+		break // do nothing
 	case err != nil:
-		return fmt.Errorf("error migrating up: %w", err)
+		return err
 	}
 
 	return nil

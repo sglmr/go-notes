@@ -131,7 +131,7 @@ func RunApp(
 
 	// Perform up migrations
 	if *migrate {
-		err = db.MigrateUp(*pgdsn)
+		err = db.MigrateUp(dbpool)
 		if err != nil {
 			return fmt.Errorf("migrate up failed: %w", err)
 		}
