@@ -38,7 +38,7 @@ func newTestServer(t *testing.T) *testServer {
 	// Connect to the PostgreSQL database
 	dbpool, err := pgxpool.New(ctx, os.Getenv("NOTES_TEST_DB_DSN"))
 	if err != nil {
-		t.Fatalf("connecting to postgres: %w", err)
+		t.Fatalf("connecting to postgres: %s", err)
 	}
 	defer dbpool.Close()
 
@@ -47,7 +47,7 @@ func newTestServer(t *testing.T) *testServer {
 	defer pingCancel()
 
 	if err = dbpool.Ping(pingCtx); err != nil {
-		t.Fatalf("pinging postgres: %w", err)
+		t.Fatalf("pinging postgres: %s", err)
 	}
 
 	// Create a new database queries object

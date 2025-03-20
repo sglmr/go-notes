@@ -18,7 +18,6 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -420,12 +419,7 @@ func viewNote(
 		data := newTemplateData(r, sessionManager)
 
 		// Check if there is an id value for the note
-		idStr := r.PathValue("id")
-		id, err := strconv.ParseInt(idStr, 10, 64)
-		if err != nil {
-			logger.Debug("viewNote strconv error", "error", err, "id", idStr)
-			NotFound(w, r)
-		}
+		id := r.PathValue("id")
 
 		// Query for a single note
 		note, err := queries.GetNote(r.Context(), id)
@@ -474,17 +468,10 @@ func noteFormGet(
 		}
 
 		// Check if there is an id value in the url path
-		idStr := r.PathValue("id")
-		var id int64
-		id, err := strconv.ParseInt(idStr, 10, 64)
-		if err != nil && len(idStr) > 0 {
-			logger.Debug("noteFormGet strconv error", "error", err, "id", idStr)
-			NotFound(w, r)
-			return
-		}
+		id := r.PathValue("id")
 
 		// Query for a single note if there is an id
-		if id > 0 {
+		if id != "" {
 			note, err := queries.GetNote(r.Context(), id)
 			if errors.Is(err, pgx.ErrNoRows) {
 				NotFound(w, r)
@@ -533,8 +520,11 @@ func noteFormPOST(
 		Validator
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var note db.Note
+
 		// Return Bad Request if the form data is not parseable
-		if err := r.ParseForm(); err != nil {
+		if err = r.ParseForm(); err != nil {
 			BadRequest(w, r, err)
 			return
 		}
@@ -543,19 +533,12 @@ func noteFormPOST(
 		data := newTemplateData(r, sessionManager)
 
 		// Check if there is an id value in the url path
-		idStr := r.PathValue("id")
-		var id int64
-		id, err := strconv.ParseInt(idStr, 10, 64)
-		if err != nil && len(idStr) > 0 {
-			logger.Debug("noteFormGet strconv error", "error", err, "id", idStr)
-			NotFound(w, r)
-			return
-		}
+		id := r.PathValue("id")
 
-		// Query for a single note if there is an id
-		var note db.Note
-		if id > 0 {
-			note, err = queries.GetNote(r.Context(), id)
+		if len(id) > 0 {
+			// Query for a single note if there is an id
+
+			_, err := queries.GetNote(r.Context(), id)
 			if errors.Is(err, pgx.ErrNoRows) {
 				NotFound(w, r)
 				return
@@ -599,10 +582,10 @@ func noteFormPOST(
 			}
 		}
 
-		if note.ID > 0 {
+		if len(id) > 0 {
 			// Update an existing Note
 			params := db.UpdateNoteParams{
-				ID:        note.ID,
+				ID:        id,
 				Title:     form.Title,
 				Note:      form.Note,
 				Archive:   form.Archive,
@@ -615,8 +598,15 @@ func noteFormPOST(
 				return
 			}
 		} else {
+			// Create an ID for the note
+			id, err = db.GenerateID("n")
+			if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
 			// Create a new note
 			params := db.CreateNoteParams{
+				ID:        id,
 				Title:     form.Title,
 				Note:      form.Note,
 				Favorite:  form.Favorite,
@@ -632,7 +622,6 @@ func noteFormPOST(
 		// Note created or updated successfully, redirect to view the note
 		url := fmt.Sprintf("/note/%v/", note.ID)
 		http.Redirect(w, r, url, http.StatusSeeOther)
-		return
 	}
 }
 

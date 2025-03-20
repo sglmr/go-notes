@@ -9,7 +9,7 @@ import (
 )
 
 type Note struct {
-	ID         int64
+	ID         string
 	Title      string
 	Note       string
 	Archive    bool

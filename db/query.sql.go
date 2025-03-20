@@ -12,6 +12,7 @@ import (
 
 const createNote = `-- name: CreateNote :one
 insert into notes (
+        id,
         title,
         note,
         archive,
@@ -19,11 +20,12 @@ insert into notes (
         created_at,
         modified_at
     )
-values ($1, $2, false, $3, $4, NOW())
+values ($1, $2, $3, false, $4, $5, NOW())
 returning id, title, note, archive, favorite, created_at, modified_at
 `
 
 type CreateNoteParams struct {
+	ID        string
 	Title     string
 	Note      string
 	Favorite  bool
@@ -32,6 +34,7 @@ type CreateNoteParams struct {
 
 func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, error) {
 	row := q.db.QueryRow(ctx, createNote,
+		arg.ID,
 		arg.Title,
 		arg.Note,
 		arg.Favorite,
@@ -55,7 +58,7 @@ delete from notes
 where id = $1
 `
 
-func (q *Queries) DeleteNote(ctx context.Context, id int64) error {
+func (q *Queries) DeleteNote(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteNote, id)
 	return err
 }
@@ -67,7 +70,7 @@ where id = $1
 limit 1
 `
 
-func (q *Queries) GetNote(ctx context.Context, id int64) (Note, error) {
+func (q *Queries) GetNote(ctx context.Context, id string) (Note, error) {
 	row := q.db.QueryRow(ctx, getNote, id)
 	var i Note
 	err := row.Scan(
@@ -224,10 +227,11 @@ func (q *Queries) ListNotes(ctx context.Context) ([]Note, error) {
 const searchNotes = `-- name: SearchNotes :many
 SELECT id, title, note, archive, favorite, created_at, modified_at
 FROM notes
-WHERE (title || ' ' || note) ILIKE '%' || $1::text || '%'
+WHERE ('id' || ' ' || title || ' ' || note) ILIKE '%' || $1::text || '%'
 ORDER BY CASE
-        WHEN title ILIKE '%' || $1::text || '%' THEN 0
-        ELSE 1
+        WHEN id ILIKE '%' || $1::text || '%' THEN 0
+        WHEN title ILIKE '%' || $1::text || '%' THEN 1
+        ELSE 2
     END,
     modified_at DESC
 `
@@ -273,7 +277,7 @@ returning id, title, note, archive, favorite, created_at, modified_at
 `
 
 type UpdateNoteParams struct {
-	ID        int64
+	ID        string
 	Title     string
 	Note      string
 	Archive   bool

@@ -24,6 +24,7 @@ from notes
 order by modified_at desc;
 -- name: CreateNote :one
 insert into notes (
+        id,
         title,
         note,
         archive,
@@ -31,7 +32,7 @@ insert into notes (
         created_at,
         modified_at
     )
-values ($1, $2, false, $3, $4, NOW())
+values ($1, $2, $3, false, $4, $5, NOW())
 returning *;
 -- name: UpdateNote :one
 update notes
@@ -49,9 +50,10 @@ where id = $1;
 -- name: SearchNotes :many
 SELECT *
 FROM notes
-WHERE (title || ' ' || note) ILIKE '%' || @query::text || '%'
+WHERE ('id' || ' ' || title || ' ' || note) ILIKE '%' || @query::text || '%'
 ORDER BY CASE
-        WHEN title ILIKE '%' || @query::text || '%' THEN 0
-        ELSE 1
+        WHEN id ILIKE '%' || @query::text || '%' THEN 0
+        WHEN title ILIKE '%' || @query::text || '%' THEN 1
+        ELSE 2
     END,
     modified_at DESC;

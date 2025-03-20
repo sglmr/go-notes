@@ -10,6 +10,12 @@ import (
 	"time"
 	"unicode"
 
+	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer/html"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -26,10 +32,11 @@ var TemplateFuncs = template.FuncMap{
 	"longDateTime": longDateTime,
 
 	// String functions
-	"uppercase": strings.ToUpper,
-	"lowercase": strings.ToLower,
-	"slugify":   slugify,
-	"safeHTML":  safeHTML,
+	"uppercase":      strings.ToUpper,
+	"lowercase":      strings.ToLower,
+	"slugify":        slugify,
+	"safeHTML":       safeHTML,
+	"markdownToHTML": markdownToHTML,
 
 	// Slice functions
 	"join": strings.Join,
@@ -153,4 +160,35 @@ func toInt64(i any) (int64, error) {
 	}
 
 	return 0, fmt.Errorf("unable to convert type %T to int", i)
+}
+
+// markdownToHTML converts a string of Markdown into an HTML string
+func markdownToHTML(content string) template.HTML {
+	md := goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,
+			extension.Footnote,
+			highlighting.NewHighlighting(
+				highlighting.WithStyle("friendly"),
+				highlighting.WithFormatOptions(
+					chromahtml.WithLineNumbers(true),
+				),
+			),
+		),
+		goldmark.WithParserOptions(
+			parser.WithAutoHeadingID(),
+		),
+		goldmark.WithRendererOptions(
+			html.WithUnsafe(),
+		),
+	)
+	buf := new(bytes.Buffer)
+
+	// Convert the markdown to HTML and check for an error
+	if err := md.Convert([]byte(content), buf); err != nil {
+		panic(err)
+	}
+
+	// Return the template.HTML
+	return template.HTML(buf.String())
 }

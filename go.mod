@@ -3,11 +3,15 @@ module github.com/sglmr/gowebstart
 go 1.23.7
 
 require (
+	github.com/alecthomas/chroma/v2 v2.15.0
 	github.com/alexedwards/scs/v2 v2.8.0
 	github.com/golang-migrate/migrate/v4 v4.18.2
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/justinas/nosurf v1.1.1
 	github.com/wneessen/go-mail v0.6.2
+	github.com/yuin/goldmark v1.7.8
+	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	golang.org/x/term v0.30.0
@@ -16,6 +20,7 @@ require (
 )
 
 require (
+	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
