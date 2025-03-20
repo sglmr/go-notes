@@ -40,11 +40,20 @@ func MigrateUp(conn *pgxpool.Pool) error {
 		return err
 	}
 
+	// TOOD: Remove this one day
+	err = migrator.Down()
+	switch {
+	case errors.Is(err, migrate.ErrNoChange):
+		// do nothing
+	case err != nil:
+		return err
+	}
+
 	// Apply all the available up migrations
 	err = migrator.Up()
 	switch {
 	case errors.Is(err, migrate.ErrNoChange):
-		break // do nothing
+		// do nothing
 	case err != nil:
 		return err
 	}

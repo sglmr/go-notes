@@ -32,10 +32,10 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/justinas/nosurf"
 	"github.com/sglmr/gowebstart/assets"
+	"github.com/sglmr/gowebstart/internal/argon2id"
 	"github.com/sglmr/gowebstart/internal/email"
 	"github.com/sglmr/gowebstart/internal/render"
 	"github.com/sglmr/gowebstart/internal/vcs"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/constraints"
 )
 
@@ -58,9 +58,10 @@ func main() {
 // NewServer is a constructor that takes in all dependencies as arguments
 func NewServer(
 	logger *slog.Logger,
+	useAuth bool,
 	devMode bool,
 	mailer email.MailerInterface,
-	username, password string,
+	username, passwordHash string,
 	wg *sync.WaitGroup,
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
@@ -70,7 +71,7 @@ func NewServer(
 	mux := http.NewServeMux()
 
 	// Register the home handler for the root route
-	httpHandler := AddRoutes(mux, logger, devMode, mailer, username, password, wg, sessionManager, queries)
+	httpHandler := AddRoutes(mux, logger, useAuth, devMode, mailer, username, passwordHash, wg, sessionManager, queries)
 
 	return httpHandler
 }
@@ -94,8 +95,8 @@ func RunApp(
 	host := fs.String("host", "0.0.0.0", "Server host")
 	port := fs.String("port", "", "Server port")
 	devMode := fs.Bool("dev", false, "Development mode. Displays stack trace & more verbose logging")
-	username := fs.String("username", "admin", "Username basic auth")
-	password := fs.String("password", `$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O`, "Password for basic auth ('password' by default)")
+	username := fs.String("username", os.Getenv("BASIC_AUTH_USERNAME"), "Username basic auth")
+	passwordHash := fs.String("password-hash", os.Getenv("BASIC_AUTH_PASSWORD"), "Password for basic auth ('password' by default)")
 	pgdsn := fs.String("db-dsn", os.Getenv("NOTES_DB_DSN"), "PostgreSQL DSN")
 	migrate := fs.Bool("automigrate", true, "Automatically perform up migrations on startup")
 	_ = fs.String("smtp-host", "", "Email smtp host")
@@ -151,6 +152,21 @@ func RunApp(
 		Level: logLevel,
 	}))
 
+	// Check username and password hash
+	useAuth := !*devMode
+	// Check username
+	if useAuth && len(*username) < 5 {
+		// validate username is there
+		return errors.New("missing basic auth username")
+	}
+	// Check passwordHash works
+	if useAuth {
+		_, _, _, err := argon2id.DecodeHash(*passwordHash)
+		if err != nil {
+			return errors.New("invalid argon2id password hash")
+		}
+	}
+
 	// Create a mailer for sending emails
 	var mailer email.MailerInterface
 	switch {
@@ -175,7 +191,7 @@ func RunApp(
 	sessionManager.Lifetime = 24 * time.Hour
 
 	// Set up router
-	srv := NewServer(logger, *devMode, mailer, *username, *password, &wg, sessionManager, queries)
+	srv := NewServer(logger, useAuth, *devMode, mailer, *username, *passwordHash, &wg, sessionManager, queries)
 
 	// Configure an http server
 	httpServer := &http.Server{
@@ -266,9 +282,10 @@ func BackgroundTask(wg *sync.WaitGroup, logger *slog.Logger, fn func() error) {
 func AddRoutes(
 	mux *http.ServeMux,
 	logger *slog.Logger,
+	useAuth bool,
 	devMode bool,
 	mailer email.MailerInterface,
-	username, password string,
+	username, passwordHash string,
 	wg *sync.WaitGroup,
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
@@ -289,13 +306,16 @@ func AddRoutes(
 
 	mux.Handle("GET /health/", health())
 
-	mux.Handle("GET /protected/", BasicAuthMW(username, password, logger, devMode)(protected()))
-
 	// Add recoverPanic middleware
 	handler := RecoverPanicMW(mux, logger, devMode)
 	// handler = SecureHeadersMW(handler)
 	handler = LogRequestMW(logger)(handler)
 	handler = sessionManager.LoadAndSave(handler)
+
+	// Wrap everything in basic auth middleware if the useAuth flag is set
+	if useAuth {
+		handler = BasicAuthMW(username, passwordHash, logger)(handler)
+	}
 
 	// Return the handler
 	return handler
@@ -372,11 +392,15 @@ func listNotes(
 
 		// Check if there is a search query parameter
 		q := r.URL.Query().Get("q")
-		data["Query"] = q
-		logger.Debug("list notes", "query", q)
+		tag := r.URL.Query().Get("tag")
+		data["Search"] = map[string]string{
+			"Q":   q,
+			"Tag": tag,
+		}
+		logger.Debug("list notes search", "q", q, "tag", tag)
 
 		var notes []db.Note
-		if len(q) == 0 {
+		if len(q) == 0 && len(tag) == 0 {
 			// List of all notes
 			n, err := queries.ListNotes(r.Context())
 			if err != nil {
@@ -386,7 +410,12 @@ func listNotes(
 			notes = n
 		} else {
 			// Search for notes
-			n, err := queries.SearchNotes(r.Context(), q)
+			params := db.SearchNotesParams{
+				Query: q,
+				Tags:  []string{tag},
+			}
+			logger.Debug("tag search params", "params", params)
+			n, err := queries.SearchNotes(r.Context(), params)
 			if err != nil {
 				ServerError(w, r, err, logger, showTrace)
 				return
@@ -398,6 +427,14 @@ func listNotes(
 
 		// Add the notes data to the template data map
 		data["Notes"] = notes
+
+		// Query for a list of tags
+		tagList, err := queries.GetTagsWithCounts(r.Context())
+		if err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+		data["TagList"] = tagList
 
 		// Render the page
 		if err := render.Page(w, http.StatusOK, data, "listNotes.tmpl"); err != nil {
@@ -591,7 +628,9 @@ func noteFormPOST(
 				Archive:   form.Archive,
 				Favorite:  form.Favorite,
 				CreatedAt: form.CreatedAt,
+				Tags:      extractTags(form.Note),
 			}
+			logger.Debug("updating a note", "params", params)
 			note, err = queries.UpdateNote(r.Context(), params)
 			if err != nil {
 				ServerError(w, r, err, logger, showTrace)
@@ -611,7 +650,9 @@ func noteFormPOST(
 				Note:      form.Note,
 				Favorite:  form.Favorite,
 				CreatedAt: form.CreatedAt,
+				Tags:      extractTags(form.Note),
 			}
+			logger.Debug("creating a note", "params", params)
 			note, err = queries.CreateNote(r.Context(), params)
 			if err != nil {
 				ServerError(w, r, err, logger, showTrace)
@@ -622,75 +663,6 @@ func noteFormPOST(
 		// Note created or updated successfully, redirect to view the note
 		url := fmt.Sprintf("/note/%v/", note.ID)
 		http.Redirect(w, r, url, http.StatusSeeOther)
-	}
-}
-
-// contact handles rendering a contact page
-func contact(
-	logger *slog.Logger,
-	showTrace bool,
-	wg *sync.WaitGroup,
-	mailer email.MailerInterface,
-	sessionManager *scs.SessionManager,
-) http.HandlerFunc {
-	type contactForm struct {
-		Name    string
-		Email   string
-		Message string
-		Validator
-	}
-	return func(w http.ResponseWriter, r *http.Request) {
-		data := newTemplateData(r, sessionManager)
-		data["Form"] = contactForm{}
-
-		if r.Method == http.MethodPost {
-			if err := r.ParseForm(); err != nil {
-				BadRequest(w, r, err)
-				return
-			}
-
-			form := contactForm{}
-
-			// Populate the form data
-			form.Name = r.FormValue("name")
-			form.Email = r.FormValue("email")
-			form.Message = r.FormValue("message")
-
-			// Validate the form
-			form.Check(NotBlank(form.Name), "Name", "Name is required.")
-			form.Check(MaxRunes(form.Name, 100), "Name", "Name must be less than 100 characters.")
-
-			form.Check(NotBlank(form.Email), "Email", "Email is required.")
-			form.Check(IsEmail(form.Email), "Email", "Email must be a valid email address.")
-
-			form.Check(NotBlank(form.Message), "Message", "Message is required.")
-			form.Check(MaxRunes(form.Message, 1000), "Message", "Message must be less than 1,000 characters.")
-
-			if form.Valid() {
-				// Email the form message
-				BackgroundTask(wg, logger, func() error {
-					return mailer.Send("Recipient <recipient@example.com>", "Reply-To <reply-to@example.com>", form, "example.tmpl")
-				})
-				// Render the contact success page
-				err := render.Page(w, http.StatusFound, data, "contact-success.tmpl")
-				if err != nil {
-					ServerError(w, r, err, logger, showTrace)
-					return
-				}
-				return
-			}
-
-			// Update the template data form so the page errors will render
-			data["Form"] = form
-
-		}
-
-		// Render the contact.tmpl page
-		err := render.Page(w, http.StatusOK, data, "contact.tmpl")
-		if err != nil {
-			ServerError(w, r, err, logger, showTrace)
-			return
-		}
 	}
 }
 
@@ -712,8 +684,42 @@ func protected() http.HandlerFunc {
 }
 
 //=============================================================================
-// Validation helpers
+// Helpers
 //=============================================================================
+
+// extractTags extracts hashtags from the input text and returns them as a slice of strings
+// The hashtags are extracted without the # symbol.
+func extractTags(text string) []string {
+	// Compile the regular expression
+	re := regexp.MustCompile(`(\s|.)#([-a-z0-9]*[a-z0-9])`)
+
+	// Find all matches of the regex in the input text
+	// The second argument -1 means return all matches
+	matches := re.FindAllStringSubmatch(text, -1)
+
+	// Initialize the results slice
+	result := []string{}
+
+	// Extract the capture group (the hashtag without #) from each match
+	for _, match := range matches {
+		switch {
+		case len(match) == 0:
+			continue
+		case match[1] == "(":
+			// Exclude links to ids in markdown
+			// ex: [link](#heading-link)
+			continue
+		case match[1] == `"`:
+			// Exclude links to ids in a href tags
+			// ex: <a href="#heading-link">link</a>
+			continue
+		default:
+			result = append(result, match[2])
+		}
+	}
+
+	return result
+}
 
 // newTemplateData constructs a map of data to pass into templates
 func newTemplateData(r *http.Request, sessionManager *scs.SessionManager) map[string]any {
@@ -837,7 +843,7 @@ func CsrfMW(next http.Handler) http.Handler {
 }
 
 // BasicAuthMW restricts routes for basic authentication
-func BasicAuthMW(username, passwordHash string, logger *slog.Logger, showTrace bool) func(http.Handler) http.Handler {
+func BasicAuthMW(username, passwordHash string, logger *slog.Logger) func(http.Handler) http.Handler {
 	authError := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 
@@ -848,29 +854,28 @@ func BasicAuthMW(username, passwordHash string, logger *slog.Logger, showTrace b
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Get basic auth credentials from the request
-			requestUser, requestPass, ok := r.BasicAuth()
+			requestUsername, requestPassword, ok := r.BasicAuth()
 			if !ok {
 				authError(w, r)
 				return
 			}
 
 			// Check if the username matches the request
-			if username != requestUser {
+			if username != requestUsername {
 				authError(w, r)
 				return
 			}
 
-			// Hash and compare the passwords
-			err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(requestPass))
-			switch {
-			case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
+			match, err := argon2id.ComparePasswordAndHash(requestPassword, passwordHash)
+			if err != nil {
+				logger.Error("ComparePasswordAndHash error", "error", err)
 				authError(w, r)
 				return
-			case err != nil:
-				ServerError(w, r, err, logger, showTrace)
+			} else if !match {
+				authError(w, r)
 				return
 			}
-
+			// Serve the next http request
 			next.ServeHTTP(w, r)
 		})
 	}

@@ -4,14 +4,29 @@
 <h1>Notes</h1>
 
 <form method="GET" action="" style="max-width:33vw">
-    <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Query}}">
+    <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Search.Q}}">
+    {{ $tag := .Search.Tag}}
+    <select name="tag" id="tag" aria-label="Select a tag...">
+        <option {{ if eq (len $tag) 0 }}selected{{end}} value="">
+          Select a tag...
+        </option>
+        {{range .TagList}}
+        <option value="{{.TagName}}" {{if eq .TagName $tag}}selected{{end}}>{{.TagName}} ({{.NoteCount}})</option>
+        {{end}}
+      </select>
     <input type="submit" value="Search">
 </form>
 
 {{if .Notes}}
 <ul>
     {{range .Notes}}
-    <li>{{.CreatedAt|formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a></li>
+    <li>
+        {{.CreatedAt|formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a>
+        <br>
+        {{range .Tags}}
+        <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
+        {{end}}
+    </li>
     {{end}}
 </ul>
 {{else}}

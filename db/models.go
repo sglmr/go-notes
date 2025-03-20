@@ -16,4 +16,10 @@ type Note struct {
 	Favorite   bool
 	CreatedAt  time.Time
 	ModifiedAt time.Time
+	Tags       []string
+}
+
+type TagSummary struct {
+	TagName   interface{}
+	NoteCount int64
 }

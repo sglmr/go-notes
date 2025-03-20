@@ -1,3 +1,4 @@
+// This is a CLI tool for generating the argon2id encoded hash of a password.
 package main
 
 import (
@@ -5,7 +6,7 @@ import (
 	"log"
 	"syscall"
 
-	"golang.org/x/crypto/bcrypt"
+	"github.com/sglmr/gowebstart/internal/argon2id"
 	"golang.org/x/term"
 )
 
@@ -29,12 +30,12 @@ func main() {
 		log.Fatalln("passwords don't match")
 	}
 
-	// Generate the bcrypt hash
-	hash, err := bcrypt.GenerateFromPassword(password, bcrypt.DefaultCost)
+	// Generate an argon2id hash
+	encodedHash, err := argon2id.CreateHash(string(password), argon2id.DefaultParams)
 	if err != nil {
 		log.Fatalln("Error generating hash:", err)
 	}
 
 	// Print the resulting hash
-	fmt.Println("\n\tPassword hash:", string(hash))
+	fmt.Println("\n\tPassword hash:", string(encodedHash))
 }

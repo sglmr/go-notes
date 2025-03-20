@@ -30,9 +30,10 @@ insert into notes (
         archive,
         favorite,
         created_at,
-        modified_at
+        modified_at,
+        tags
     )
-values ($1, $2, $3, false, $4, $5, NOW())
+values ($1, $2, $3, false, $4, $5, NOW(), $6)
 returning *;
 -- name: UpdateNote :one
 update notes
@@ -41,6 +42,7 @@ set title = $2,
     archive = $4,
     favorite = $5,
     created_at = $6,
+    tags = $7,
     modified_at = NOW()
 where id = $1
 returning *;
@@ -50,10 +52,27 @@ where id = $1;
 -- name: SearchNotes :many
 SELECT *
 FROM notes
-WHERE ('id' || ' ' || title || ' ' || note) ILIKE '%' || @query::text || '%'
+WHERE (
+        @query::text = ''
+        OR ('id' || ' ' || title || ' ' || note) ILIKE '%' || @query::text || '%'
+    )
+    AND (
+        (@tags::text[])[1] = ''
+        OR tags @> @tags::text []
+    )
 ORDER BY CASE
+        WHEN @query::text = '' THEN 3
         WHEN id ILIKE '%' || @query::text || '%' THEN 0
         WHEN title ILIKE '%' || @query::text || '%' THEN 1
         ELSE 2
     END,
     modified_at DESC;
+-- name: FindNotesWithTags :many
+SELECT *
+FROM notes
+WHERE tags @> $1::text []
+ORDER BY modified_at DESC;
+-- name: GetTagsWithCounts :many
+SELECT *
+FROM tag_summary
+ORDER BY tag_name;
