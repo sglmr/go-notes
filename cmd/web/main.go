@@ -315,7 +315,7 @@ func AddRoutes(
 
 	// Wrap everything in basic auth middleware if the useAuth flag is set
 	if useAuth {
-		handler = BasicAuthMW(username, passwordHash, logger)(handler)
+		// handler = BasicAuthMW(username, passwordHash, logger)(handler)
 	}
 
 	// Return the handler
