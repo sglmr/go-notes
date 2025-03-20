@@ -40,7 +40,9 @@ func MigrateUp(conn *pgxpool.Pool) error {
 		return err
 	}
 
-	// TOOD: Remove this one day
+	_ = migrator.Force(3)
+
+	// TODO: Remove this one day
 	err = migrator.Down()
 	switch {
 	case errors.Is(err, migrate.ErrNoChange):

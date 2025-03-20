@@ -177,8 +177,9 @@ func RunApp(
 		// Configure email to send to log
 		mailer = email.NewLogMailer(logger)
 	default:
+		logLevel.Set(slog.LevelInfo)
 		mailer = email.NewLogMailer(logger)
-		// Configure a mailer to send real emails
+		// TODO: Configure a mailer to send real emails
 		// mailer, err = email.NewMailer(*smtpHost, *smtpPort, *smtpUsername, *smtpPassword, *smtpFrom)
 		// if err != nil {
 		// logger.Error("smtp configuration error", "error", err)
