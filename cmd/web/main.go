@@ -163,7 +163,7 @@ func RunApp(
 	if useAuth {
 		_, _, _, err := argon2id.DecodeHash(*passwordHash)
 		if err != nil {
-			return errors.New("invalid argon2id password hash")
+			return fmt.Errorf("invalid argon2id decode: %w", err)
 		}
 	}
 
