@@ -190,6 +190,9 @@ func RunApp(
 	// Session manager configuration
 	sessionManager := scs.New()
 	sessionManager.Lifetime = 24 * time.Hour
+	if useAuth {
+		sessionManager.Cookie.Secure = true
+	}
 
 	// Set up router
 	srv := NewServer(logger, useAuth, *devMode, mailer, *username, *passwordHash, &wg, sessionManager, queries)
@@ -315,7 +318,7 @@ func AddRoutes(
 
 	// Wrap everything in basic auth middleware if the useAuth flag is set
 	if useAuth {
-		// handler = BasicAuthMW(username, passwordHash, logger)(handler)
+		handler = BasicAuthMW(username, passwordHash, logger)(handler)
 	}
 
 	// Return the handler
