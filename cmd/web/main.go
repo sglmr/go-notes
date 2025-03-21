@@ -614,7 +614,7 @@ func importNote(
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprint(w, "created note: %v", n)
+		fmt.Fprint(w, "created note: %v", n.ID)
 	}
 }
 
