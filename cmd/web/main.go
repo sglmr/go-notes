@@ -587,7 +587,6 @@ func importNote(
 			BadRequest(w, r, err)
 			return
 		}
-
 		// Convert the value to time.Time
 		modifiedAt, err := time.Parse("2006-01-02T15:04", r.FormValue("modified_at"))
 		if err != nil {
@@ -610,7 +609,7 @@ func importNote(
 		n, err := queries.ImportNote(r.Context(), params)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
-			fmt.Fprintf(w, "error importing: %s", err.Error())
+			fmt.Fprintf(w, "error importing: %s\nparams:%v", err.Error(), params)
 			return
 		}
 
