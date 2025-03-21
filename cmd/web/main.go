@@ -594,7 +594,7 @@ func importNote(
 			return
 		}
 
-		noteID, _ := db.GenerateID("n_")
+		noteID, _ := db.GenerateID("n")
 
 		params := db.ImportNoteParams{
 			ID:         noteID,
