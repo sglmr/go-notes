@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sglmr/gowebstart/assets"
-	"github.com/sglmr/gowebstart/internal/funcs"
+	"github.com/sglmr/go-notes/assets"
+	"github.com/sglmr/go-notes/internal/funcs"
 
 	"github.com/wneessen/go-mail"
 

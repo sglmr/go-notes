@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/sglmr/gowebstart/assets"
+	"github.com/sglmr/go-notes/assets"
 )
 
 // MigrateUp performs all the available Up migrations on the PostgreSQL database with golang-migrate.

@@ -88,7 +88,7 @@ You can also now connect directly to psql with `psql $NOTES_DB_DSN `
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/sglmr/gowebstart.git
+git clone https://github.com/sglmr/go-notes.git
 cd gowebstart
 ```
 

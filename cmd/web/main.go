@@ -17,12 +17,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sglmr/gowebstart/db"
+	"github.com/sglmr/go-notes/db"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/alexedwards/scs/v2"
-	"github.com/sglmr/gowebstart/internal/email"
+	"github.com/sglmr/go-notes/internal/email"
 )
 
 //=============================================================================

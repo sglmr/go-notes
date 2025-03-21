@@ -9,7 +9,7 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/justinas/nosurf"
-	"github.com/sglmr/gowebstart/internal/vcs"
+	"github.com/sglmr/go-notes/internal/vcs"
 )
 
 //=============================================================================

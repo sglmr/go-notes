@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/sglmr/gowebstart/internal/assert"
+	"github.com/sglmr/go-notes/internal/assert"
 )
 
 func TestLogMailer_Send(t *testing.T) {

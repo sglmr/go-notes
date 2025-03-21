@@ -13,12 +13,12 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/justinas/nosurf"
-	"github.com/sglmr/gowebstart/assets"
-	"github.com/sglmr/gowebstart/db"
-	"github.com/sglmr/gowebstart/internal/email"
-	"github.com/sglmr/gowebstart/internal/render"
-	"github.com/sglmr/gowebstart/internal/validator"
-	"github.com/sglmr/gowebstart/internal/vcs"
+	"github.com/sglmr/go-notes/assets"
+	"github.com/sglmr/go-notes/db"
+	"github.com/sglmr/go-notes/internal/email"
+	"github.com/sglmr/go-notes/internal/render"
+	"github.com/sglmr/go-notes/internal/validator"
+	"github.com/sglmr/go-notes/internal/vcs"
 )
 
 // AddRoutes adds all the routes to the mux

@@ -6,7 +6,7 @@ import (
 	"log"
 	"syscall"
 
-	"github.com/sglmr/gowebstart/internal/argon2id"
+	"github.com/sglmr/go-notes/internal/argon2id"
 	"golang.org/x/term"
 )
 

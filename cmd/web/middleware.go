@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/justinas/nosurf"
-	"github.com/sglmr/gowebstart/internal/argon2id"
+	"github.com/sglmr/go-notes/internal/argon2id"
 )
 
 // staticFileSystem is a custom type that embeds the standard http.FileSystem for serving static files

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/sglmr/gowebstart/internal/assert"
-	"github.com/sglmr/gowebstart/internal/vcs"
+	"github.com/sglmr/go-notes/internal/assert"
+	"github.com/sglmr/go-notes/internal/vcs"
 )
 
 func TestHealth(t *testing.T) {

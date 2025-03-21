@@ -19,8 +19,8 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
-	"github.com/sglmr/gowebstart/db"
-	"github.com/sglmr/gowebstart/internal/email"
+	"github.com/sglmr/go-notes/db"
+	"github.com/sglmr/go-notes/internal/email"
 )
 
 const (
