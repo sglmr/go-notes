@@ -95,3 +95,7 @@ returning *;
 SELECT * FROM notes
 OFFSET floor(random() * (select count(*) from notes))
 limit 1;
+-- name: ArchiveNote :exec
+update notes
+set archive = TRUE
+where id = $1;

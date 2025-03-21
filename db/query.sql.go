@@ -10,6 +10,17 @@ import (
 	"time"
 )
 
+const archiveNote = `-- name: ArchiveNote :exec
+update notes
+set archive = TRUE
+where id = $1
+`
+
+func (q *Queries) ArchiveNote(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, archiveNote, id)
+	return err
+}
+
 const createNote = `-- name: CreateNote :one
 insert into notes (
         id,
