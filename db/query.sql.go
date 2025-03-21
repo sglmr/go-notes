@@ -306,6 +306,8 @@ WHERE (
         ($2::text[])[1] = ''
         OR tags @> $2::text []
     )
+    AND (archive IS FALSE OR $3::bool IS TRUE)
+    AND (favorite IS TRUE or $4::bool IS FALSE)
 ORDER BY CASE
         WHEN $1::text = '' THEN 3
         WHEN id ILIKE '%' || $1::text || '%' THEN 0
@@ -316,12 +318,19 @@ ORDER BY CASE
 `
 
 type SearchNotesParams struct {
-	Query string
-	Tags  []string
+	Query     string
+	Tags      []string
+	Archived  bool
+	Favorites bool
 }
 
 func (q *Queries) SearchNotes(ctx context.Context, arg SearchNotesParams) ([]Note, error) {
-	rows, err := q.db.Query(ctx, searchNotes, arg.Query, arg.Tags)
+	rows, err := q.db.Query(ctx, searchNotes,
+		arg.Query,
+		arg.Tags,
+		arg.Archived,
+		arg.Favorites,
+	)
 	if err != nil {
 		return nil, err
 	}

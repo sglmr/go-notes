@@ -396,14 +396,18 @@ func listNotes(
 		// Check if there is a search query parameter
 		q := r.URL.Query().Get("q")
 		tag := r.URL.Query().Get("tag")
-		data["Search"] = map[string]string{
-			"Q":   q,
-			"Tag": tag,
+		favorites := len(r.URL.Query().Get("favorites")) > 0
+		archived := len(r.URL.Query().Get("archived")) > 0
+		data["Search"] = map[string]any{
+			"Q":         q,
+			"Tag":       tag,
+			"Favorites": favorites,
+			"Archived":  archived,
 		}
-		logger.Debug("list notes search", "q", q, "tag", tag)
+		logger.Debug("list notes search", "q", q, "tag", tag, "favorites", favorites, "archived", archived)
 
 		var notes []db.Note
-		if len(q) == 0 && len(tag) == 0 {
+		if len(q) == 0 && len(tag) == 0 && !favorites && !archived {
 			// List of all notes
 			n, err := queries.ListNotes(r.Context())
 			if err != nil {
@@ -414,8 +418,10 @@ func listNotes(
 		} else {
 			// Search for notes
 			params := db.SearchNotesParams{
-				Query: q,
-				Tags:  []string{tag},
+				Query:     q,
+				Tags:      []string{tag},
+				Archived:  archived,
+				Favorites: favorites,
 			}
 			logger.Debug("tag search params", "params", params)
 			n, err := queries.SearchNotes(r.Context(), params)

@@ -60,6 +60,8 @@ WHERE (
         (@tags::text[])[1] = ''
         OR tags @> @tags::text []
     )
+    AND (archive IS FALSE OR @archived::bool IS TRUE)
+    AND (favorite IS TRUE or @favorites::bool IS FALSE)
 ORDER BY CASE
         WHEN @query::text = '' THEN 3
         WHEN id ILIKE '%' || @query::text || '%' THEN 0

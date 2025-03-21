@@ -4,10 +4,20 @@
 <h1>Notes</h1>
 
 <form method="GET" action="" style="max-width:33vw">
+    <!-- text search input -->
     <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Search.Q}}">
+    <fieldset>
+      <legend>Filter</legend>
+      <input type="checkbox" id="favorites" name="favorites" {{if .Search.Favorites}}checked{{end}}/>
+      <label htmlFor="favorites">Favorites</label>
+      <input type="checkbox" id="archived" name="archived" {{if .Search.Archived}}checked{{end}}/>
+      <label htmlFor="archived">Include Archived</label>
+    </fieldset>
+    
+    <!-- tag list dropdown -->
     {{ $tag := .Search.Tag}}
     <select name="tag" id="tag" aria-label="Select a tag...">
-        <option {{ if eq (len $tag) 0 }}selected{{end}} value="">
+        <option {{if eq (len $tag) 0}}selected{{end}} value="">
           Select a tag...
         </option>
         {{range .TagList}}
