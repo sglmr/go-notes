@@ -143,7 +143,7 @@ func TestBasicAuthMWUnauthorized(t *testing.T) {
 	// Pass the mock HTTP handler to the BasicAuthMW middleware.
 	// Call ServeHTTP to execute it.
 	// Hashed password is 'password'
-	mw := BasicAuthMW("admin", "$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O", testLogger, false)
+	mw := BasicAuthMW("admin", "$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O", testLogger)
 	mw(next).ServeHTTP(rr, r)
 
 	// Get the results of the test
@@ -185,7 +185,7 @@ func TestBasicAuthMWOK(t *testing.T) {
 	// Pass the mock HTTP handler to the BasicAuthMW middleware.
 	// Call ServeHTTP to execute it.
 	// Hashed password is 'password'
-	mw := BasicAuthMW("admin", "$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O", testLogger, false)
+	mw := BasicAuthMW("admin", "$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O", testLogger)
 	mw(next).ServeHTTP(rr, r)
 
 	// Get the results of the test
