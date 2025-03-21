@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
 	"log/slog"
 	"net"
 	"net/http"
@@ -49,9 +50,7 @@ func main() {
 
 	// Run the application
 	if err := RunApp(ctx, os.Stdout, os.Args, os.Getenv); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-		return
+		log.Fatal("error runnning app: ", err.Error())
 	}
 }
 
@@ -676,14 +675,6 @@ func health() http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintln(w, "status: OK")
 		fmt.Fprintln(w, "ver: ", vcs.Version())
-	}
-}
-
-// protected handles a page protected by basic authentication.
-func protected() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprint(w, "You're visiting a protected page!")
 	}
 }
 

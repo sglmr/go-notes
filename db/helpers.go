@@ -21,35 +21,28 @@ import (
 func MigrateUp(conn *pgxpool.Pool) error {
 	// Convert pgx connection to sql.DB
 	db := stdlib.OpenDBFromPool(conn)
+	defer db.Close()
 
 	// Create a driver for golang-migrate
 	dbDriver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
-		return err
+		return fmt.Errorf("new migration driver error: %w", err)
 	}
+	defer dbDriver.Close()
 
 	// Create an in-memory file system driver that can read the embedded migration files
 	iofsDriver, err := iofs.New(assets.EmbeddedFiles, "migrations")
 	if err != nil {
-		return err
+		return fmt.Errorf("new iofs error: %w", err)
 	}
+	defer iofsDriver.Close()
 
 	// Create a new migrate instance
 	migrator, err := migrate.NewWithInstance("iofs", iofsDriver, "postgres", dbDriver)
 	if err != nil {
-		return err
+		return fmt.Errorf("new migrate instance err: %w", err)
 	}
-
-	_ = migrator.Force(3)
-
-	// TODO: Remove this one day
-	err = migrator.Down()
-	switch {
-	case errors.Is(err, migrate.ErrNoChange):
-		// do nothing
-	case err != nil:
-		return err
-	}
+	defer migrator.Close()
 
 	// Apply all the available up migrations
 	err = migrator.Up()
@@ -57,7 +50,7 @@ func MigrateUp(conn *pgxpool.Pool) error {
 	case errors.Is(err, migrate.ErrNoChange):
 		// do nothing
 	case err != nil:
-		return err
+		return fmt.Errorf("migrate up err: %w", err)
 	}
 
 	return nil
