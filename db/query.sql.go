@@ -152,6 +152,54 @@ func (q *Queries) GetTagsWithCounts(ctx context.Context) ([]TagSummary, error) {
 	return items, nil
 }
 
+const importNote = `-- name: ImportNote :one
+insert into notes (
+        id,
+        title,
+        note,
+        archive,
+        favorite,
+        created_at,
+        modified_at
+    )
+values ($1, $2, $3, $4, $5, $6, $7)
+returning id, title, note, archive, favorite, created_at, modified_at, tags
+`
+
+type ImportNoteParams struct {
+	ID         string
+	Title      string
+	Note       string
+	Archive    bool
+	Favorite   bool
+	CreatedAt  time.Time
+	ModifiedAt time.Time
+}
+
+func (q *Queries) ImportNote(ctx context.Context, arg ImportNoteParams) (Note, error) {
+	row := q.db.QueryRow(ctx, importNote,
+		arg.ID,
+		arg.Title,
+		arg.Note,
+		arg.Archive,
+		arg.Favorite,
+		arg.CreatedAt,
+		arg.ModifiedAt,
+	)
+	var i Note
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Note,
+		&i.Archive,
+		&i.Favorite,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+		&i.Tags,
+	)
+	return i, err
+}
+
 const listAllNotes = `-- name: ListAllNotes :many
 select id, title, note, archive, favorite, created_at, modified_at, tags
 from notes

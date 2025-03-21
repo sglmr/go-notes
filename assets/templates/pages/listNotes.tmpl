@@ -6,13 +6,6 @@
 <form method="GET" action="" style="max-width:33vw">
     <!-- text search input -->
     <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Search.Q}}">
-    <fieldset>
-      <legend>Filter</legend>
-      <input type="checkbox" id="favorites" name="favorites" {{if .Search.Favorites}}checked{{end}}/>
-      <label htmlFor="favorites">Favorites</label>
-      <input type="checkbox" id="archived" name="archived" {{if .Search.Archived}}checked{{end}}/>
-      <label htmlFor="archived">Include Archived</label>
-    </fieldset>
     
     <!-- tag list dropdown -->
     {{ $tag := .Search.Tag}}
@@ -24,6 +17,16 @@
         <option value="{{.TagName}}" {{if eq .TagName $tag}}selected{{end}}>{{.TagName}} ({{.NoteCount}})</option>
         {{end}}
       </select>
+    
+      <!-- checkboxes -->
+      <fieldset>
+        <input type="checkbox" id="favorites" name="favorites" {{if .Search.Favorites}}checked{{end}}/>
+        <label htmlFor="favorites">Favorites</label>
+        <input type="checkbox" id="archived" name="archived" {{if .Search.Archived}}checked{{end}}/>
+        <label htmlFor="archived">Include Archived</label>
+      </fieldset>
+
+      <!-- submit -->
     <input type="submit" value="Search">
 </form>
 

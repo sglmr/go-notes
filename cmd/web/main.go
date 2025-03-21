@@ -309,10 +309,15 @@ func AddRoutes(
 
 	mux.Handle("GET /health/", health())
 
+	// TODO: Remove these
+	mux.Handle("GET /import/", importNote(logger, queries))
+	mux.Handle("POST /import/", importNote(logger, queries))
+
 	// Add recoverPanic middleware
 	handler := RecoverPanicMW(mux, logger, devMode)
 	// handler = SecureHeadersMW(handler)
 	handler = LogRequestMW(logger)(handler)
+	handler = CsrfMW(handler)
 	handler = sessionManager.LoadAndSave(handler)
 
 	// Wrap everything in basic auth middleware if the useAuth flag is set
@@ -547,6 +552,70 @@ func noteFormGet(
 			ServerError(w, r, err, logger, showTrace)
 			return
 		}
+	}
+}
+
+// importNote handles POST requests to insert a note
+func importNote(
+	logger *slog.Logger,
+	queries *db.Queries,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			// Set content type to plain text
+			w.Header().Set("Content-Type", "text/plain")
+
+			// Write a text response
+			fmt.Fprint(w, nosurf.Token(r))
+			return
+		}
+
+		// Return Bad Request if the form data is not parseable
+		if err := r.ParseForm(); err != nil {
+			BadRequest(w, r, err)
+			return
+		}
+
+		title := r.FormValue("title")
+		note := r.FormValue("note")
+		archive := strings.ToLower(r.FormValue("archive")) == "true"
+		favorite := strings.ToLower(r.FormValue("favorite")) == "true"
+
+		// Convert the value to time.Time
+		createdAt, err := time.Parse("2006-01-02T15:04", r.FormValue("created_at"))
+		if err != nil {
+			BadRequest(w, r, err)
+			return
+		}
+
+		// Convert the value to time.Time
+		modifiedAt, err := time.Parse("2006-01-02T15:04", r.FormValue("modified_at"))
+		if err != nil {
+			BadRequest(w, r, err)
+			return
+		}
+
+		noteID, _ := db.GenerateID("n_")
+
+		params := db.ImportNoteParams{
+			ID:         noteID,
+			Title:      title,
+			Note:       note,
+			Archive:    archive,
+			Favorite:   favorite,
+			CreatedAt:  createdAt,
+			ModifiedAt: modifiedAt,
+		}
+
+		n, err := queries.ImportNote(r.Context(), params)
+		if err != nil {
+			w.Header().Set("Content-Type", "text/plain")
+			fmt.Fprintf(w, "error importing: %s", err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/plain")
+		fmt.Fprint(w, "created note: %v", n)
 	}
 }
 

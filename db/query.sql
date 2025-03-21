@@ -78,3 +78,15 @@ ORDER BY modified_at DESC;
 SELECT *
 FROM tag_summary
 ORDER BY tag_name;
+-- name: ImportNote :one
+insert into notes (
+        id,
+        title,
+        note,
+        archive,
+        favorite,
+        created_at,
+        modified_at
+    )
+values ($1, $2, $3, $4, $5, $6, $7)
+returning *;
