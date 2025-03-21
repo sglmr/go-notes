@@ -604,6 +604,7 @@ func importNote(
 			Favorite:   favorite,
 			CreatedAt:  createdAt,
 			ModifiedAt: modifiedAt,
+			Tags:       extractTags(note),
 		}
 
 		n, err := queries.ImportNote(r.Context(), params)

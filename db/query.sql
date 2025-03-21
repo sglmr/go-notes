@@ -86,7 +86,8 @@ insert into notes (
         archive,
         favorite,
         created_at,
-        modified_at
+        modified_at,
+        tags
     )
-values ($1, $2, $3, $4, $5, $6, $7)
+values ($1, $2, $3, $4, $5, $6, $7, $8)
 returning *;

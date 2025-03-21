@@ -160,9 +160,10 @@ insert into notes (
         archive,
         favorite,
         created_at,
-        modified_at
+        modified_at,
+        tags
     )
-values ($1, $2, $3, $4, $5, $6, $7)
+values ($1, $2, $3, $4, $5, $6, $7, $8)
 returning id, title, note, archive, favorite, created_at, modified_at, tags
 `
 
@@ -174,6 +175,7 @@ type ImportNoteParams struct {
 	Favorite   bool
 	CreatedAt  time.Time
 	ModifiedAt time.Time
+	Tags       []string
 }
 
 func (q *Queries) ImportNote(ctx context.Context, arg ImportNoteParams) (Note, error) {
@@ -185,6 +187,7 @@ func (q *Queries) ImportNote(ctx context.Context, arg ImportNoteParams) (Note, e
 		arg.Favorite,
 		arg.CreatedAt,
 		arg.ModifiedAt,
+		arg.Tags,
 	)
 	var i Note
 	err := row.Scan(
