@@ -609,7 +609,7 @@ func importNote(
 		n, err := queries.ImportNote(r.Context(), params)
 		if err != nil {
 			w.Header().Set("Content-Type", "text/plain")
-			fmt.Fprintf(w, "error importing: %s\nparams:%v", err.Error(), params)
+			fmt.Fprintf(w, "error importing %s: %s", noteID, err.Error())
 			return
 		}
 
