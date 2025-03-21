@@ -37,8 +37,9 @@ func AddRoutes(
 	fileServer := http.FileServer(http.FS(staticFileSystem{assets.EmbeddedFiles}))
 	mux.Handle("GET /static/", CacheControlMW("31536000")(fileServer))
 
-	mux.Handle("GET /", home(logger, devMode, sessionManager))
+	mux.Handle("GET /", home(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /list/", listNotes(logger, devMode, sessionManager, queries))
+	mux.Handle("GET /search/", listNotes(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /note/{id}/", viewNote(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /new/", noteFormGet(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /note/{id}/edit/", noteFormGet(logger, devMode, sessionManager, queries))
@@ -80,6 +81,7 @@ func home(
 	logger *slog.Logger,
 	showTrace bool,
 	sessionManager *scs.SessionManager,
+	queries *db.Queries,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Redirect non-root paths to root
@@ -88,10 +90,17 @@ func home(
 			NotFound(w, r)
 			return
 		}
-		putFlashMessage(r, LevelSuccess, "Welcome!", sessionManager)
-		putFlashMessage(r, LevelSuccess, "You made it!", sessionManager)
 
+		// Query for a random note
+		note, err := queries.RandomNote(r.Context())
+		if err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+
+		// Set up template data
 		data := newTemplateData(r, sessionManager)
+		data["Note"] = note
 
 		if err := render.Page(w, http.StatusOK, data, "home.tmpl"); err != nil {
 			ServerError(w, r, err, logger, showTrace)
@@ -107,25 +116,27 @@ func listNotes(
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
 ) http.HandlerFunc {
+	type searchQuery struct {
+		Q         string
+		Tag       string
+		Favorites bool
+		Archived  bool
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Create a new template data file
-		data := newTemplateData(r, sessionManager)
-
 		// Check if there is a search query parameter
-		q := r.URL.Query().Get("q")
-		tag := r.URL.Query().Get("tag")
-		favorites := len(r.URL.Query().Get("favorites")) > 0
-		archived := len(r.URL.Query().Get("archived")) > 0
-		data["Search"] = map[string]any{
-			"Q":         q,
-			"Tag":       tag,
-			"Favorites": favorites,
-			"Archived":  archived,
+		query := searchQuery{
+			Q:         r.URL.Query().Get("q"),
+			Tag:       r.URL.Query().Get("tag"),
+			Favorites: len(r.URL.Query().Get("favorites")) > 0,
+			Archived:  len(r.URL.Query().Get("archived")) > 0,
 		}
-		logger.Debug("list notes search", "q", q, "tag", tag, "favorites", favorites, "archived", archived)
+
+		logger.Debug("list notes search", "query", query)
 
 		var notes []db.Note
-		if len(q) == 0 && len(tag) == 0 && !favorites && !archived {
+
+		switch r.URL.Path {
+		case "/list/":
 			// List of all notes
 			n, err := queries.ListNotes(r.Context())
 			if err != nil {
@@ -133,13 +144,13 @@ func listNotes(
 				return
 			}
 			notes = n
-		} else {
+		case "/search/":
 			// Search for notes
 			params := db.SearchNotesParams{
-				Query:     q,
-				Tags:      []string{tag},
-				Archived:  archived,
-				Favorites: favorites,
+				Query:     query.Q,
+				Tags:      []string{query.Tag},
+				Archived:  query.Archived,
+				Favorites: query.Favorites,
 			}
 			logger.Debug("tag search params", "params", params)
 			n, err := queries.SearchNotes(r.Context(), params)
@@ -148,12 +159,10 @@ func listNotes(
 				return
 			}
 			notes = n
+		default:
+			NotFound(w, r)
+			return
 		}
-
-		logger.Debug("list notes", "count", len(notes))
-
-		// Add the notes data to the template data map
-		data["Notes"] = notes
 
 		// Query for a list of tags
 		tagList, err := queries.GetTagsWithCounts(r.Context())
@@ -161,6 +170,13 @@ func listNotes(
 			ServerError(w, r, err, logger, showTrace)
 			return
 		}
+
+		logger.Debug("after queries", "noteCount", len(notes), "tagCount", len(tagList))
+
+		// Prepare template data
+		data := newTemplateData(r, sessionManager)
+		data["Query"] = query
+		data["Notes"] = notes
 		data["TagList"] = tagList
 
 		// Render the page

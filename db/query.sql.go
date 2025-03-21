@@ -346,6 +346,28 @@ func (q *Queries) ListNotes(ctx context.Context) ([]Note, error) {
 	return items, nil
 }
 
+const randomNote = `-- name: RandomNote :one
+SELECT id, title, note, archive, favorite, created_at, modified_at, tags FROM notes
+OFFSET floor(random() * (select count(*) from notes))
+limit 1
+`
+
+func (q *Queries) RandomNote(ctx context.Context) (Note, error) {
+	row := q.db.QueryRow(ctx, randomNote)
+	var i Note
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Note,
+		&i.Archive,
+		&i.Favorite,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+		&i.Tags,
+	)
+	return i, err
+}
+
 const searchNotes = `-- name: SearchNotes :many
 SELECT id, title, note, archive, favorite, created_at, modified_at, tags
 FROM notes

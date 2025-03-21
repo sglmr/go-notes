@@ -91,3 +91,7 @@ insert into notes (
     )
 values ($1, $2, $3, $4, $5, $6, $7, $8)
 returning *;
+-- name: RandomNote :one
+SELECT * FROM notes
+OFFSET floor(random() * (select count(*) from notes))
+limit 1;
