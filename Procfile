@@ -1,1 +1,1 @@
-web: ./web -automigrate -dev
+web: ./web -automigrate
