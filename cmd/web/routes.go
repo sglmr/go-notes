@@ -70,7 +70,7 @@ func health(devMode bool) http.HandlerFunc {
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintln(w, "status: OK")
 		fmt.Fprintln(w, "ver: ", vcs.Version())
-		fmt.Fprintln(w, "devMode: ", devMode)
+		fmt.Fprintln(w, "devMode:", devMode)
 		fmt.Fprintln(w, "app name: ", os.Getenv("DOKKU_APP_NAME"))
 	}
 }

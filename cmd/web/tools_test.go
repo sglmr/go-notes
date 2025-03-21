@@ -19,9 +19,14 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/sglmr/gowebstart/db"
 	"github.com/sglmr/gowebstart/internal/email"
+)
+
+const (
+	testUsername     = "test@example.com"
+	testPassword     = "password"
+	testPasswordHash = `$argon2id$v=19$m=65536,t=1,p=8$j0Xx+SUxc9IkZxdAdjH8nQ$YSluZBv02f56eOEMEWZUjJumVi/Z4TB+jd31YiQvxBY`
 )
 
 type testServer struct {
@@ -35,23 +40,10 @@ func newTestServer(t *testing.T) *testServer {
 
 	ctx := context.Background()
 
-	// Connect to the PostgreSQL database
-	dbpool, err := pgxpool.New(ctx, os.Getenv("NOTES_TEST_DB_DSN"))
-	if err != nil {
-		t.Fatalf("connecting to postgres: %s", err)
-	}
-	defer dbpool.Close()
-
-	// Ping the database, timeout after 5 seconds
-	pingCtx, pingCancel := context.WithTimeout(ctx, time.Second*5)
-	defer pingCancel()
-
-	if err = dbpool.Ping(pingCtx); err != nil {
-		t.Fatalf("pinging postgres: %s", err)
-	}
-
-	// Create a new database queries object
-	queries := db.New(dbpool)
+	// Set up the test database
+	dbCtx, dbCtxCancel := context.WithTimeout(ctx, time.Second*2)
+	defer dbCtxCancel()
+	queries := db.NewTestDB(t, dbCtx, os.Getenv("NOTES_TEST_DB_DSN"))
 
 	// Create an io.Discard logger for testing
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
@@ -65,12 +57,11 @@ func newTestServer(t *testing.T) *testServer {
 	mailer := email.NewLogMailer(logger)
 
 	// Initialize other required vairables for routes
-	username := "test@example.com"
-	password := `$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O` // 'password'
+
 	wg := sync.WaitGroup{}
 
 	// Create the httpHandler
-	handler := AddRoutes(mux, logger, false, mailer, username, password, &wg, sessionManager, queries)
+	handler := AddRoutes(mux, logger, false, mailer, testUsername, testPasswordHash, &wg, sessionManager, queries)
 
 	// Initialize a new test server
 	ts := httptest.NewTLSServer(handler)
@@ -124,11 +115,17 @@ func (tr testResponse) csrfToken(t *testing.T) string {
 
 // get issues a GET request and returns a testResponse object
 //   - 'path' is the relative url path, like "/about/"
-func (ts *testServer) get(t *testing.T, path string) testResponse {
+func (ts *testServer) get(t *testing.T, path string, login bool) testResponse {
 	// Create a new http request
 	request, err := http.NewRequest(http.MethodGet, ts.URL+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// Add login if login requested
+	if login {
+		// Add basic auth header
+		request.SetBasicAuth(testUsername, testPassword)
 	}
 
 	// Send Http Request

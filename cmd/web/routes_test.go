@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/http"
-	"net/url"
 	"testing"
 
 	"github.com/sglmr/gowebstart/internal/assert"
@@ -10,73 +9,62 @@ import (
 )
 
 func TestHealth(t *testing.T) {
-	t.Parallel()
-
+	// Create a new test server
 	ts := newTestServer(t)
 	defer ts.Close()
 
-	response := ts.get(t, "/health/")
+	// Test Unauthorized without login
+	response := ts.get(t, "/health/", false)
+	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
 
-	// Check that the status code was 200.
-	assert.Equal(t, http.StatusOK, response.statusCode)
+	// Test OK with login
+	response = ts.get(t, "/health/", true)
+	assert.Equal(t, response.statusCode, http.StatusOK)
 
-	// Check the content type
+	// Check the response content type
 	assert.Equal(t, response.header.Get("Content-Type"), "text/plain")
 
 	// Check the body contains "OK"
 	assert.StringContains(t, response.body, "status: OK")
 	assert.StringContains(t, response.body, vcs.Version())
+	assert.StringContains(t, response.body, "devMode: false")
+	assert.StringContains(t, response.body, "app name:")
 }
 
-func TestContactE2E(t *testing.T) {
-	t.Parallel()
-
+func TestListNotes(t *testing.T) {
 	// Create a new test server
 	ts := newTestServer(t)
 	defer ts.Close()
 
-	// ------- Test GET Method ---------
+	// Test unauthorized without login
+	response := ts.get(t, "/list/", false)
+	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
 
-	response := ts.get(t, "/contact/")
-	token := response.csrfToken(t)
-
-	// Check the status of the request
+	// Test OK with login
+	response = ts.get(t, "/list/", true)
 	assert.Equal(t, response.statusCode, http.StatusOK)
 
-	// Check that the body contains the word "contact"
-	assert.StringContains(t, response.body, "Contact")
+	// Has the search form fields
+	assert.StringContains(t, response.body, `<form method="GET"`)
+	assert.StringContains(t, response.body, `<input type="text" name="q" id="q" placeholder="Search notes..." value="">`)
+	assert.StringContains(t, response.body, `<select name="tag" id="tag" aria-label="Select a tag...">`)
+	assert.StringContains(t, response.body, `<input type="checkbox" id="favorites" name="favorites" />`)
+	assert.StringContains(t, response.body, `<input type="checkbox" id="archived" name="archived" />`)
 
-	// -------- Test Post without CSRF --------------------
+	// Has the title of a recent note
+	assert.StringContains(t, response.body, "Weekend Plans")
+	assert.StringContains(t, response.body, "/note/n_001/")
 
-	data := url.Values{}
-	data.Add("name", "joe")
-	data.Add("email", "joe@example.com")
-	data.Add("message", "some message")
-
-	// Create a new http POST request.
-	response = ts.post(t, "/contact/", data)
-
-	// Bad request because
-	assert.Equal(t, response.statusCode, http.StatusBadRequest)
-
-	// --------- Test POST with CSRF -----------------
-
-	// Add the csrf_token to the request
-	data.Add("csrf_token", token)
-
-	// Create a new http POST request.
-	response = ts.post(t, "/contact/", data)
-
-	assert.Equal(t, response.statusCode, http.StatusFound)
+	// Response does not have an archived note
+	assert.StringNotContains(t, response.body, "PostgreSQL Learning")
+	assert.StringNotContains(t, response.body, "n_009")
 }
 
 func TestHome(t *testing.T) {
-	t.Parallel()
-
 	ts := newTestServer(t)
 	defer ts.Close()
 
-	response := ts.get(t, "/")
+	response := ts.get(t, "/", true)
 
 	assert.Equal(t, http.StatusOK, response.statusCode)
 	assert.StringContains(t, response.body, "Example")
