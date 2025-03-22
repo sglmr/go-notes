@@ -16,20 +16,20 @@ func TestHealth(t *testing.T) {
 
 	// Test Unauthorized without login
 	response := ts.get(t, "/health/", false)
-	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
 
 	// Test OK with login
 	response = ts.get(t, "/health/", true)
-	assert.Equal(t, response.statusCode, http.StatusOK)
+	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Check the response content type
-	assert.Equal(t, response.header.Get("Content-Type"), "text/plain")
+	assert.Equal(t, "text/plain", response.header.Get("Content-Type"))
 
 	// Check the body contains "OK"
-	assert.StringContains(t, response.body, "status: OK")
-	assert.StringContains(t, response.body, vcs.Version())
-	assert.StringContains(t, response.body, "devMode: false")
-	assert.StringContains(t, response.body, "app name:")
+	assert.StringIn(t, "status: OK", response.body)
+	assert.StringIn(t, vcs.Version(), response.body)
+	assert.StringIn(t, "devMode: false", response.body)
+	assert.StringIn(t, "app name:", response.body)
 }
 
 func TestListNotes(t *testing.T) {
@@ -39,26 +39,26 @@ func TestListNotes(t *testing.T) {
 
 	// Test unauthorized without login
 	response := ts.get(t, "/list/", false)
-	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
 
 	// Test OK with login
 	response = ts.get(t, "/list/", true)
-	assert.Equal(t, response.statusCode, http.StatusOK)
+	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the search form fields
-	assert.StringContains(t, response.body, `<form method="GET"`)
-	assert.StringContains(t, response.body, `<input type="text" name="q" id="q" placeholder="Search notes..." value="">`)
-	assert.StringContains(t, response.body, `<select name="tag" id="tag" aria-label="Select a tag...">`)
-	assert.StringContains(t, response.body, `<input type="checkbox" id="favorites" name="favorites" />`)
-	assert.StringContains(t, response.body, `<input type="checkbox" id="archived" name="archived" />`)
+	assert.StringIn(t, `<form method="GET"`, response.body)
+	assert.StringIn(t, `<input type="text" name="q" id="q" placeholder="Search notes..." value="">`, response.body)
+	assert.StringIn(t, `<select name="tag" id="tag" aria-label="Select a tag...">`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="favorites" name="favorites" />`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="archived" name="archived" />`, response.body)
 
 	// Has the title of a recent note
-	assert.StringContains(t, response.body, "Weekend Plans")
-	assert.StringContains(t, response.body, "/note/n_001/")
+	assert.StringIn(t, "Weekend Plans", response.body)
+	assert.StringIn(t, "/note/n_001/", response.body)
 
 	// Response does not have an archived note
-	assert.StringNotContains(t, response.body, "PostgreSQL Learning")
-	assert.StringNotContains(t, response.body, "n_009")
+	assert.StringNotIn(t, "PostgreSQL Learning", response.body)
+	assert.StringNotIn(t, "n_009", response.body)
 }
 
 func TestDeleteNoteGet(t *testing.T) {
@@ -68,19 +68,19 @@ func TestDeleteNoteGet(t *testing.T) {
 
 	// Test unauthorized without login
 	response := ts.get(t, "/note/n_001/delete/", false)
-	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
 
 	// Test OK with login
 	response = ts.get(t, "/note/n_001/delete/", true)
-	assert.Equal(t, response.statusCode, http.StatusOK)
+	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the form fields
-	assert.StringContains(t, response.body, `<form method="POST" action="/note/n_001/delete/">`)
-	assert.StringContains(t, response.body, `<input type="hidden" name="csrf_token" value="`)
-	assert.StringContains(t, response.body, `<input type="submit" value="Delete">`)
+	assert.StringIn(t, `<form method="POST" action="/note/n_001/delete/">`, response.body)
+	assert.StringIn(t, `<input type="hidden" name="csrf_token" value="`, response.body)
+	assert.StringIn(t, `<input type="submit" value="Delete">`, response.body)
 
 	// Has the title of the note
-	assert.StringContains(t, response.body, "Weekend Plans")
+	assert.StringIn(t, "Weekend Plans", response.body)
 }
 
 func TestDeleteNotePost(t *testing.T) {
@@ -90,15 +90,15 @@ func TestDeleteNotePost(t *testing.T) {
 
 	// Validate the post exists
 	response := ts.get(t, "/note/n_001/", true)
-	assert.Equal(t, response.statusCode, http.StatusOK)
+	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Test unauthorized without login
 	response = ts.post(t, "/note/n_001/delete/", url.Values{}, false)
-	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
 
 	// Test delete requires csrf_token
 	response = ts.post(t, "/notes/n_001/delete/", url.Values{}, true)
-	assert.Equal(t, response.statusCode, http.StatusBadRequest)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Get a CSRF Token then post a delete
 	response = ts.get(t, "/note/n_001/delete/", true)
@@ -107,13 +107,12 @@ func TestDeleteNotePost(t *testing.T) {
 
 	// Post a response with the csrf token
 	response = ts.post(t, "/note/n_001/delete/", data, true)
-	assert.Equal(t, response.statusCode, http.StatusSeeOther)
-	next := response.header.Get("Location")
-	assert.Equal(t, next, "/list/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+	assert.Equal(t, "/list/", response.header.Get("Location"))
 
 	// Validate the post doesn't exist anymore
 	response = ts.get(t, "/note/n_001/", true)
-	assert.Equal(t, response.statusCode, http.StatusNotFound)
+	assert.Equal(t, http.StatusNotFound, response.statusCode)
 }
 
 func TestHome(t *testing.T) {
@@ -122,6 +121,6 @@ func TestHome(t *testing.T) {
 
 	response := ts.get(t, "/", true)
 
-	assert.Equal(t, http.StatusOK, response.statusCode)
-	assert.StringContains(t, response.body, "Example")
+	assert.Equal(t, response.statusCode, http.StatusOK)
+	assert.StringIn(t, "Example", response.body)
 }

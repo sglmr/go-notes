@@ -324,7 +324,7 @@ func (q *Queries) ListFavoriteNotes(ctx context.Context) ([]Note, error) {
 const listNotes = `-- name: ListNotes :many
 select id, title, note, archive, favorite, created_at, modified_at, tags
 from notes
-where archive is FALSE
+where archive != TRUE
 order by modified_at desc
 `
 

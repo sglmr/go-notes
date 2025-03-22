@@ -3,7 +3,7 @@ package funcs
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/sglmr/go-notes/internal/assert"
 )
 
 // TestSlugify runs a series of tests on the slugify function
@@ -34,8 +34,7 @@ func TestSlugify(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
 			t.Parallel()
-			got := slugify(test.input)
-			assert.Equal(t, got, test.want)
+			assert.Equal(t, test.want, slugify(test.input))
 		})
 	}
 }

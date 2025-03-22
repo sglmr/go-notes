@@ -32,16 +32,16 @@ func TestLogMailer_Send(t *testing.T) {
 	// Assert no error was returned
 	assert.NoError(t, err)
 
-	// Assert the log StringContains the expected information
+	// Assert the log StringIn the expected information
 	logOutput := logBuffer.String()
-	assert.StringContains(t, logOutput, "send email")
-	assert.StringContains(t, logOutput, "recipient=test@example.com")
-	assert.StringContains(t, logOutput, "name")
-	assert.StringContains(t, logOutput, "Test User")
-	assert.StringContains(t, logOutput, "message")
-	assert.StringContains(t, logOutput, "Hello World")
-	assert.StringContains(t, logOutput, "welcome.tmpl")
-	assert.StringContains(t, logOutput, "notification.tmpl")
+	assert.StringIn(t, "send email", logOutput)
+	assert.StringIn(t, "recipient=test@example.com", logOutput)
+	assert.StringIn(t, "name", logOutput)
+	assert.StringIn(t, "Test User", logOutput)
+	assert.StringIn(t, "message", logOutput)
+	assert.StringIn(t, "Hello World", logOutput)
+	assert.StringIn(t, "welcome.tmpl", logOutput)
+	assert.StringIn(t, "notification.tmpl", logOutput)
 }
 
 // TestLogMailerImplementsInterface ensures that LogMailer correctly implements MailerInterface

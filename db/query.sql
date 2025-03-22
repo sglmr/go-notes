@@ -6,7 +6,7 @@ limit 1;
 -- name: ListNotes :many
 select *
 from notes
-where archive is FALSE
+where archive != TRUE
 order by modified_at desc;
 -- name: ListFavoriteNotes :many
 select *
