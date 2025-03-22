@@ -122,9 +122,8 @@ func (ts *testServer) get(t *testing.T, path string, login bool) testResponse {
 		t.Fatal(err)
 	}
 
-	// Add login if login requested
 	if login {
-		// Add basic auth header
+		// Add login if login requested
 		request.SetBasicAuth(testUsername, testPassword)
 	}
 
@@ -152,11 +151,15 @@ func (ts *testServer) get(t *testing.T, path string, login bool) testResponse {
 
 // post issues a POST request and returns a testResponse object
 //   - 'path' is the relative url path, like "/about/"
-func (ts *testServer) post(t *testing.T, path string, data url.Values) testResponse {
+func (ts *testServer) post(t *testing.T, path string, data url.Values, login bool) testResponse {
 	// Create a new http POST request.
 	request, err := http.NewRequest(http.MethodPost, ts.URL+path, strings.NewReader(data.Encode()))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if login {
+		// Add login if login requested
+		request.SetBasicAuth(testUsername, testPassword)
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 

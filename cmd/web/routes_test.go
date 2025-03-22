@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 
 	"github.com/sglmr/go-notes/internal/assert"
@@ -58,6 +59,61 @@ func TestListNotes(t *testing.T) {
 	// Response does not have an archived note
 	assert.StringNotContains(t, response.body, "PostgreSQL Learning")
 	assert.StringNotContains(t, response.body, "n_009")
+}
+
+func TestDeleteNoteGet(t *testing.T) {
+	// Create a new test server
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Test unauthorized without login
+	response := ts.get(t, "/note/n_001/delete/", false)
+	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
+
+	// Test OK with login
+	response = ts.get(t, "/note/n_001/delete/", true)
+	assert.Equal(t, response.statusCode, http.StatusOK)
+
+	// Has the form fields
+	assert.StringContains(t, response.body, `<form method="POST" action="/note/n_001/delete/">`)
+	assert.StringContains(t, response.body, `<input type="hidden" name="csrf_token" value="`)
+	assert.StringContains(t, response.body, `<input type="submit" value="Delete">`)
+
+	// Has the title of the note
+	assert.StringContains(t, response.body, "Weekend Plans")
+}
+
+func TestDeleteNotePost(t *testing.T) {
+	// Create a new test server
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Validate the post exists
+	response := ts.get(t, "/note/n_001/", true)
+	assert.Equal(t, response.statusCode, http.StatusOK)
+
+	// Test unauthorized without login
+	response = ts.post(t, "/note/n_001/delete/", url.Values{}, false)
+	assert.Equal(t, response.statusCode, http.StatusUnauthorized)
+
+	// Test delete requires csrf_token
+	response = ts.post(t, "/notes/n_001/delete/", url.Values{}, true)
+	assert.Equal(t, response.statusCode, http.StatusBadRequest)
+
+	// Get a CSRF Token then post a delete
+	response = ts.get(t, "/note/n_001/delete/", true)
+	data := url.Values{}
+	data.Add("csrf_token", response.csrfToken(t))
+
+	// Post a response with the csrf token
+	response = ts.post(t, "/note/n_001/delete/", data, true)
+	assert.Equal(t, response.statusCode, http.StatusSeeOther)
+	next := response.header.Get("Location")
+	assert.Equal(t, next, "/list/")
+
+	// Validate the post doesn't exist anymore
+	response = ts.get(t, "/note/n_001/", true)
+	assert.Equal(t, response.statusCode, http.StatusNotFound)
 }
 
 func TestHome(t *testing.T) {

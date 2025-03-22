@@ -42,6 +42,8 @@ func AddRoutes(
 	mux.Handle("GET /search/", listNotes(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /note/{id}/", viewNote(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /new/", noteFormGet(logger, devMode, sessionManager, queries))
+	mux.Handle("GET /note/{id}/delete/", deleteNote(logger, devMode, sessionManager, queries))
+	mux.Handle("POST /note/{id}/delete/", deleteNote(logger, devMode, sessionManager, queries))
 	mux.Handle("GET /note/{id}/edit/", noteFormGet(logger, devMode, sessionManager, queries))
 
 	mux.Handle("POST /new/", noteFormPOST(logger, devMode, sessionManager, queries))
@@ -217,6 +219,53 @@ func viewNote(
 		// Render the page
 		if err := render.Page(w, http.StatusOK, data, "viewNote.tmpl"); err != nil {
 			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+	}
+}
+
+// deleteNote deletes a note
+func deleteNote(
+	logger *slog.Logger,
+	showTrace bool,
+	sessionManager *scs.SessionManager,
+	queries *db.Queries,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Check if there is an id value for the note
+		id := r.PathValue("id")
+
+		// Query for a single note
+		note, err := queries.GetNote(r.Context(), id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			NotFound(w, r)
+			return
+		} else if err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
+
+		switch r.Method {
+		case http.MethodGet:
+			// Create a new template data file
+			data := newTemplateData(r, sessionManager)
+			data["Note"] = note
+
+			// Render the page
+			if err := render.Page(w, http.StatusOK, data, "deleteNote.tmpl"); err != nil {
+				ServerError(w, r, err, logger, showTrace)
+				return
+			}
+		case http.MethodPost:
+			err := queries.DeleteNote(r.Context(), id)
+			if err != nil {
+				ServerError(w, r, err, logger, showTrace)
+			}
+
+			http.Redirect(w, r, "/list/", http.StatusSeeOther)
+
+		default:
+			NotFound(w, r)
 			return
 		}
 	}
