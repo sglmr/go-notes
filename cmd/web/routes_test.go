@@ -124,3 +124,58 @@ func TestHome(t *testing.T) {
 	assert.Equal(t, response.statusCode, http.StatusOK)
 	assert.StringIn(t, "Example", response.body)
 }
+
+func TestNewNoteGET(t *testing.T) {
+	// Create a new test server
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Test unauthorized without login
+	response := ts.get(t, "/new/", false)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+
+	// Test OK with login
+	response = ts.get(t, "/new/", true)
+	assert.Equal(t, http.StatusOK, response.statusCode)
+
+	// Has the form fields
+	assert.StringIn(t, `<form id="note-form" method="POST">`, response.body)
+	assert.StringIn(t, `<input type="hidden" name="csrf_token" value="`, response.body)
+	assert.StringIn(t, `<input type="text" id="title" name="title"`, response.body)
+	assert.StringIn(t, `<input type="datetime-local" id="created_at" name="created_at"`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="favorite" name="favorite" role="switch"`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="archive" name="archive" role="switch"`, response.body)
+	assert.StringIn(t, `textarea id="note" name="note" placeholder="Note content..."`, response.body)
+	assert.StringIn(t, `<input type="submit" value="Submit">`, response.body)
+}
+
+func TestEditNoteGET(t *testing.T) {
+	// Create a new test server
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Test unauthorized without login
+	response := ts.get(t, "/note/n_002/edit/", false)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+
+	// Test OK with login
+	response = ts.get(t, "/note/n_002/edit/", true)
+	assert.Equal(t, http.StatusOK, response.statusCode)
+
+	// Has the form fields
+	assert.StringIn(t, `<form id="note-form" method="POST">`, response.body)
+	assert.StringIn(t, `<input type="hidden" name="csrf_token" value="`, response.body)
+	assert.StringIn(t, `<input type="text" id="title" name="title"`, response.body)
+	assert.StringIn(t, `<input type="datetime-local" id="created_at" name="created_at"`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="favorite" name="favorite" role="switch"`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="archive" name="archive" role="switch"`, response.body)
+	assert.StringIn(t, `textarea id="note" name="note" placeholder="Note content..."`, response.body)
+	assert.StringIn(t, `<input type="submit" value="Submit">`, response.body)
+
+	// Test the form has data from the fields
+	assert.StringIn(t, `New Recipe`, response.body)
+	assert.StringIn(t, `Found an amazing #recipe for pasta`, response.body)
+	assert.StringIn(t, `2025-01-20`, response.body)    // created_at is editable
+	assert.StringNotIn(t, `2025-02-01`, response.body) // modified_at is not editable
+	assert.StringNotIn(t, `checked`, response.body)
+}

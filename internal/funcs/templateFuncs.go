@@ -10,7 +10,7 @@ import (
 	"time"
 	"unicode"
 
-	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
+	chroma "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
@@ -171,7 +171,7 @@ func markdownToHTML(content string) template.HTML {
 			highlighting.NewHighlighting(
 				highlighting.WithStyle("friendly"),
 				highlighting.WithFormatOptions(
-					chromahtml.WithLineNumbers(true),
+					chroma.WithLineNumbers(true),
 				),
 			),
 		),
