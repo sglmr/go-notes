@@ -34,7 +34,7 @@
                     {{end}}
                 </label>
                 <input type="datetime-local" id="created_at" name="created_at"
-                    value="{{.Form.CreatedAt|formatTime `2006-01-02T15:04`}}">
+                    value="{{timeInLocation .Form.CreatedAt .TimeLocation|formatTime `2006-01-02T15:04`}}">
 
             </div>
 
