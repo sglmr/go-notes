@@ -1,0 +1,28 @@
+{{define "page:title"}}Delete {{.Note.Title}}?{{end}}
+
+{{define "page:main"}}
+<section>
+<form method="POST" action="/note/{{.Note.ID}}/delete/">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <p><strong>Are you sure you want to delete this note?</strong></p>
+    <input type="submit" value="Delete">
+</form>
+</section>
+
+<article>
+    <header>
+        <h1>{{.Note.Title}}</h1>
+        <div>
+            {{range .Note.Tags}}
+        <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
+        {{end}}
+        </div>
+        <div>Created: {{.Note.CreatedAt|longDateTime}}</div>
+        <div>Modified: {{.Note.ModifiedAt|longDateTime}}</div>
+    </header>
+    <div class="container">
+        {{.Note.Note|markdownToHTML}}
+    </div>
+</article>
+
+{{end}}

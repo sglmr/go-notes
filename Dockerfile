@@ -1,4 +1,4 @@
-FROM golang:1.24 AS builder
+FROM golang:1.24 AS build
 
 WORKDIR /go/src/app
 COPY . .
@@ -8,5 +8,5 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/web ./cmd/web
 
 FROM gcr.io/distroless/static-debian12
 
-COPY --from=builder /go/bin/web /
-CMD /web -port $PORT
+COPY --from=build /go/bin/web /
+CMD ["/web"]

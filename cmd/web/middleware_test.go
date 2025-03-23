@@ -6,10 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/sglmr/go-notes/internal/assert"
 )
 
 func TestSecureHeadersMW(t *testing.T) {
@@ -100,7 +99,7 @@ func TestRecoverPanicMW(t *testing.T) {
 
 	// Check that the middleware has correctly called the next handler in line
 	// and the response status code and body are as expected.
-	assert.Equal(t, rs.StatusCode, http.StatusInternalServerError)
+	assert.Equal(t, http.StatusInternalServerError, rs.StatusCode)
 
 	defer rs.Body.Close()
 	body, err := io.ReadAll(rs.Body)
@@ -114,9 +113,10 @@ func TestRecoverPanicMW(t *testing.T) {
 
 	// Check the log message
 	logMsg := logBuffer.String()
-	assert.Check(t, strings.Contains(logMsg, "level=ERROR"))
-	assert.Check(t, strings.Contains(logMsg, "status=500"))
-	assert.Check(t, strings.Contains(logMsg, "error=Help!"))
+
+	assert.StringIn(t, "level=ERROR", logMsg)
+	assert.StringIn(t, "status=500", logMsg)
+	assert.StringIn(t, "error=Help!", logMsg)
 }
 
 func TestBasicAuthMWUnauthorized(t *testing.T) {
@@ -143,7 +143,7 @@ func TestBasicAuthMWUnauthorized(t *testing.T) {
 	// Pass the mock HTTP handler to the BasicAuthMW middleware.
 	// Call ServeHTTP to execute it.
 	// Hashed password is 'password'
-	mw := BasicAuthMW("admin", "$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O", testLogger, false)
+	mw := BasicAuthMW(testUsername, testPasswordHash, testLogger)
 	mw(next).ServeHTTP(rr, r)
 
 	// Get the results of the test
@@ -151,12 +151,11 @@ func TestBasicAuthMWUnauthorized(t *testing.T) {
 
 	// Check that the middleware has correctly called the next handler in line
 	// and the response status code and body are as expected.
-	assert.Equal(t, rs.StatusCode, http.StatusUnauthorized)
+	assert.Equal(t, http.StatusUnauthorized, rs.StatusCode)
 
 	// Check that the middleware has correctly set the WWW-Authenticate header
 	// on the response.
-	want := `Basic realm="restricted", charset="UTF-8"`
-	assert.Equal(t, rs.Header.Get("WWW-Authenticate"), want)
+	assert.Equal(t, `Basic realm="restricted", charset="UTF-8"`, rs.Header.Get("WWW-Authenticate"))
 }
 
 func TestBasicAuthMWOK(t *testing.T) {
@@ -174,7 +173,7 @@ func TestBasicAuthMWOK(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Set the basic auth credentials in the request
-	r.SetBasicAuth("admin", "password")
+	r.SetBasicAuth(testUsername, testPassword)
 
 	// Create a mock HTTP handler that we can pass to our BasicAuthMW
 	// middleware, which writes a 200 status code and an "OK" response body.
@@ -185,7 +184,7 @@ func TestBasicAuthMWOK(t *testing.T) {
 	// Pass the mock HTTP handler to the BasicAuthMW middleware.
 	// Call ServeHTTP to execute it.
 	// Hashed password is 'password'
-	mw := BasicAuthMW("admin", "$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O", testLogger, false)
+	mw := BasicAuthMW(testUsername, testPasswordHash, testLogger)
 	mw(next).ServeHTTP(rr, r)
 
 	// Get the results of the test
@@ -193,5 +192,5 @@ func TestBasicAuthMWOK(t *testing.T) {
 
 	// Check that the middleware has correctly called the next handler in line
 	// and the response status code and body are as expected.
-	assert.Equal(t, rs.StatusCode, http.StatusOK)
+	assert.Equal(t, http.StatusOK, rs.StatusCode)
 }

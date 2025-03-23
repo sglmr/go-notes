@@ -1,6 +1,16 @@
 {{define "page:title"}}Example page{{end}}
 
 {{define "page:main"}}
-<h1>Example Page</h1>
-<p>This is an example page.</p>
-{{end}}
+<h1>Home</h1>
+
+<p><strong>Check out a random note from the past.</strong></p>
+<article>
+    <header>
+        <h2><a href="/note/{{.Note.ID}}/">{{.Note.Title}}</a></h2>
+        <p>Last modified: {{.Note.ModifiedAt|formatTime "Jan 02, 2006"}}</p>
+    </header>
+    <div class="container">
+        {{.Note.Note|markdownToHTML}}
+    </div>
+    </section>
+    {{end}}

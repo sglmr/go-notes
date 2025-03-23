@@ -8,12 +8,22 @@ import (
 )
 
 // Equal compares two values
-func Equal[T comparable](t *testing.T, actual, expected T) {
+func Equal[T comparable](t *testing.T, want, got T) {
 	t.Helper()
 
 	// Log an error if the test does not pass the Equal test
-	if actual != expected {
-		t.Errorf("got: %v; not: %v", actual, expected)
+	if want != got {
+		t.Errorf("wanted: %v; got: %v", want, got)
+	}
+}
+
+// NotEqual compares two values
+func NotEqual[T comparable](t *testing.T, want, got T) {
+	t.Helper()
+
+	// Log an error if the test does not pass the Equal test
+	if want == got {
+		t.Errorf("wanted: %v; got: %v", want, got)
 	}
 }
 
@@ -30,46 +40,47 @@ func NoError(t *testing.T, err error, msgAndArgs ...interface{}) {
 }
 
 // EqualSlices compares two slices of any comparable type for equality
-func EqualSlices[T comparable](t *testing.T, actual, expected []T) {
+func EqualSlices[T comparable](t *testing.T, want, got []T) {
 	t.Helper()
 	// Compare the length of the slices for equality
-	if len(actual) != len(expected) {
-		t.Errorf("slice length mismatch: got %d elements; want %d elements", len(actual), len(expected))
-		t.Errorf("got: %v; want: %v", actual, expected)
+	if len(want) != len(got) {
+		t.Errorf("slice length mismatch: wanted %d elements; got %d elements", len(want), len(got))
+		t.Errorf("wanted: %v; got: %v", want, got)
 		return
 	}
 
-	for i := range actual {
-		if actual[i] != expected[i] {
-			t.Errorf("mismatch at index %d: got %v; want %v", i, actual[i], expected[i])
+	// Compate each element
+	for i := range want {
+		if want[i] != got[i] {
+			t.Errorf("mismatch at index %d: wanted %v; got %v", i, want[i], got[i])
 		}
 	}
 }
 
-// StringContains tests if a string contains a specified substring
-func StringContains(t *testing.T, actual, expectedSubstring string) {
+// StringIn tests if a string contains a specified substring
+func StringIn(t *testing.T, want, inString string) {
 	t.Helper()
 
-	if !strings.Contains(actual, expectedSubstring) {
-		t.Errorf("got %q; expected to contain: %q", actual, expectedSubstring)
+	if !strings.Contains(inString, want) {
+		t.Errorf("wanted %q; in: %q", want, inString)
 	}
 }
 
-// StringNotContains tests that the string does not contain a specified substring
-func StringNotContains(t *testing.T, actual, expectedSubstring string) {
+// StringNotIn tests that the string does not contain a specified substring
+func StringNotIn(t *testing.T, dontWant, inString string) {
 	t.Helper()
 
-	if strings.Contains(actual, expectedSubstring) {
-		t.Errorf("got %q; expected to NOT contain: %q", actual, expectedSubstring)
+	if strings.Contains(inString, dontWant) {
+		t.Errorf("dont want %q; in: %q", dontWant, inString)
 	}
 }
 
-// EqualTime tests if the time is equal (times are within 1s of each other)
-func EqualTime(t *testing.T, actual, expected time.Time) {
+// EqualTime tests if the time is equal (times are within allowedDiff of each other)
+func EqualTime(t *testing.T, want, got time.Time, allowedDiff time.Duration) {
 	t.Helper()
-	dif := actual.Sub(expected).Abs()
+	dif := got.Sub(want).Abs()
 
-	if dif > time.Second {
-		t.Errorf("got %v; not %v; off by %v", actual, expected, dif.Minutes())
+	if dif > allowedDiff {
+		t.Errorf("wanted %v; not %v; off by %v seconds", want, got, dif.Seconds())
 	}
 }

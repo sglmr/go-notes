@@ -1,0 +1,25 @@
+{{define "page:title"}}{{.Note.Title}}{{end}}
+
+{{define "page:main"}}
+<article>
+    <header>
+        <h1>{{.Note.Title}}</h1>
+        <div>
+            {{range .Note.Tags}}
+        <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
+        {{end}}
+        </div>
+        <div>Created: {{.Note.CreatedAt|longDateTime}}</div>
+        <div>Modified: {{.Note.ModifiedAt|longDateTime}}</div>
+ 
+        <div role="group" style="max-width:10ch;">
+            <a role="button" href="/note/{{.Note.ID}}/edit/">Edit</a>
+            <a role="button" class="outline" href="/note/{{.Note.ID}}/delete/">Delete</a>
+        </div>
+    </header>
+    <div class="container">
+        {{.Note.Note|markdownToHTML}}
+    </div>
+</article>
+
+{{end}}

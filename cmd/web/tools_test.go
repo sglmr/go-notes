@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"html"
 	"io"
 	"log/slog"
@@ -9,14 +10,23 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/alexedwards/scs/v2/memstore"
-	"github.com/sglmr/gowebstart/internal/email"
+	"github.com/sglmr/go-notes/db"
+	"github.com/sglmr/go-notes/internal/email"
+)
+
+const (
+	testUsername     = "test@example.com"
+	testPassword     = "password"
+	testPasswordHash = `$argon2id$v=19$m=65536,t=1,p=8$j0Xx+SUxc9IkZxdAdjH8nQ$YSluZBv02f56eOEMEWZUjJumVi/Z4TB+jd31YiQvxBY`
 )
 
 type testServer struct {
@@ -25,8 +35,19 @@ type testServer struct {
 
 // newTestServer creates a test server for integration tests.
 func newTestServer(t *testing.T) *testServer {
+	var err error
+
+	// Load the time location
+	timeLocation, err = time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Create a new serve mux
 	mux := http.NewServeMux()
+
+	// Set up the test database
+	queries := db.NewTestDatabase(t, context.Background(), os.Getenv("NOTES_TEST_DB_DSN"), true)
 
 	// Create an io.Discard logger for testing
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
@@ -40,12 +61,11 @@ func newTestServer(t *testing.T) *testServer {
 	mailer := email.NewLogMailer(logger)
 
 	// Initialize other required vairables for routes
-	username := "test@example.com"
-	password := `$2a$10$yIdGuTfOlZEA00kpreh2yuTihYQs9WAjeoIu/81AMWTVt9.Ocef5O` // 'password'
+
 	wg := sync.WaitGroup{}
 
 	// Create the httpHandler
-	handler := AddRoutes(mux, logger, false, mailer, username, password, &wg, sessionManager)
+	handler := AddRoutes(mux, logger, false, mailer, testUsername, testPasswordHash, &wg, sessionManager, queries)
 
 	// Initialize a new test server
 	ts := httptest.NewTLSServer(handler)
@@ -99,11 +119,16 @@ func (tr testResponse) csrfToken(t *testing.T) string {
 
 // get issues a GET request and returns a testResponse object
 //   - 'path' is the relative url path, like "/about/"
-func (ts *testServer) get(t *testing.T, path string) testResponse {
+func (ts *testServer) get(t *testing.T, path string, login bool) testResponse {
 	// Create a new http request
 	request, err := http.NewRequest(http.MethodGet, ts.URL+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if login {
+		// Add login if login requested
+		request.SetBasicAuth(testUsername, testPassword)
 	}
 
 	// Send Http Request
@@ -130,11 +155,15 @@ func (ts *testServer) get(t *testing.T, path string) testResponse {
 
 // post issues a POST request and returns a testResponse object
 //   - 'path' is the relative url path, like "/about/"
-func (ts *testServer) post(t *testing.T, path string, data url.Values) testResponse {
+func (ts *testServer) post(t *testing.T, path string, data url.Values, login bool) testResponse {
 	// Create a new http POST request.
 	request, err := http.NewRequest(http.MethodPost, ts.URL+path, strings.NewReader(data.Encode()))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if login {
+		// Add login if login requested
+		request.SetBasicAuth(testUsername, testPassword)
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 

@@ -34,17 +34,61 @@ This project assumes you will be running it behind a reverse proxy service that 
 
 ## Getting Started
 
+### Postgres setup
+
+```sql
+-- Create a database table
+create database notes_test;
+
+-- Connect to the database
+\c notes_test
+
+-- Create a user for the database
+create role notes_user with login password 'pa55word';
+
+-- Change the owner of the database
+alter database notes owner to notes_user;
+
+-- Grant access to public schema (might not need this one)
+grant create on schema public to notes_user;
+
+-- Grant create on database
+grant create on database notes_test to notes_user;
+
+-- Exit with \q
+\q
+```
+
+Now try to connect to the database
+
+```sh
+psql --host=localhost --dbname=notes_test --username=notes_user
+```
+
+Then we'll want to add the database dsn as an environment variable(s) in `~/.profile`
+
+```txt
+export NOTES_DB_DSN='postgres://notes_user:password@localhost/notes'
+export NOTES_TEST_DB_DSN='postgres://notes_user:password@localhost/notes'
+'''
+
+Restart your computer or run `source $HOME/.profile` to load the environment variables.
+
+You can also now connect directly to psql with `psql $NOTES_DB_DSN `
+
+
 ### Prerequisites
 
 - Go 1.22 or higher
 - [Task](https://taskfile.dev/) for project management commands.
+
 
 ### Installation
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/sglmr/gowebstart.git
+git clone https://github.com/sglmr/go-notes.git
 cd gowebstart
 ```
 

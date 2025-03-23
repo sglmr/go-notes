@@ -2,7 +2,31 @@
 
 version: '3'
 
+vars:
+  MIGRATIONS_DIR: ./assets/migrations
+  PORT: 8001
+
 tasks:
+
+  migrate:new:
+    desc: Create a new migration
+    cmds:
+      - migrate create -seq -ext=.sql -dir={{.MIGRATIONS_DIR}} {{.CLI_ARGS}}
+  
+  migrate:up:
+    desc: Migrate the database up
+    cmds:
+      - migrate -path={{.MIGRATIONS_DIR}} -database=$NOTES_DB_DSN up {{.CLI_ARGS}}
+  
+  migrate:down:
+    desc: Migrate the database down
+    cmds:
+      - migrate -path={{.MIGRATIONS_DIR}} -database=$NOTES_DB_DSN down {{.CLI_ARGS}}
+
+  migrate:force:
+    desc: Force migration to a specific version
+    cmds:
+      - migrate -path={{.MIGRATIONS_DIR}} -database=$NOTES_DB_DSN force -- {{.CLI_ARGS}}
 
   default:
     desc: Print available tasks
@@ -47,7 +71,7 @@ tasks:
     desc: Run the go app
     deps: [build]
     cmds:
-      - /tmp/bin/web -dev
+      - /tmp/bin/web -dev -port={{.PORT}}
   
   run:live:
     desc: Run the application with reloading on file changes

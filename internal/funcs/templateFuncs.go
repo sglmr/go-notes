@@ -10,6 +10,12 @@ import (
 	"time"
 	"unicode"
 
+	chroma "github.com/alecthomas/chroma/v2/formatters/html"
+	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer/html"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
@@ -18,16 +24,19 @@ var printer = message.NewPrinter(language.English)
 
 var TemplateFuncs = template.FuncMap{
 	// Time functions
-	"now":        time.Now,
-	"timeSince":  time.Since,
-	"timeUntil":  time.Until,
-	"formatTime": formatTime,
+	"now":          time.Now,
+	"timeSince":    time.Since,
+	"timeUntil":    time.Until,
+	"formatTime":   formatTime,
+	"shortDate":    shortDate,
+	"longDateTime": longDateTime,
 
 	// String functions
-	"uppercase": strings.ToUpper,
-	"lowercase": strings.ToLower,
-	"slugify":   slugify,
-	"safeHTML":  safeHTML,
+	"uppercase":      strings.ToUpper,
+	"lowercase":      strings.ToLower,
+	"slugify":        slugify,
+	"safeHTML":       safeHTML,
+	"markdownToHTML": markdownToHTML,
 
 	// Slice functions
 	"join": strings.Join,
@@ -44,8 +53,19 @@ var TemplateFuncs = template.FuncMap{
 	"urlDelParam": urlDelParam,
 }
 
+// formatTime returns a string formatted version of a time.Time
 func formatTime(format string, t time.Time) string {
 	return t.Format(format)
+}
+
+// longDateTime returns a long formatted date time string
+func longDateTime(t time.Time) string {
+	return formatTime("January 2, 2006, 3:04 pm", t)
+}
+
+// shortDate returns a short formatted date string
+func shortDate(t time.Time) string {
+	return formatTime("2006-01-02", t)
 }
 
 // slugify converts a string into a URL-friendly slug.
@@ -140,4 +160,35 @@ func toInt64(i any) (int64, error) {
 	}
 
 	return 0, fmt.Errorf("unable to convert type %T to int", i)
+}
+
+// markdownToHTML converts a string of Markdown into an HTML string
+func markdownToHTML(content string) template.HTML {
+	md := goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,
+			extension.Footnote,
+			highlighting.NewHighlighting(
+				highlighting.WithStyle("friendly"),
+				highlighting.WithFormatOptions(
+					chroma.WithLineNumbers(true),
+				),
+			),
+		),
+		goldmark.WithParserOptions(
+			parser.WithAutoHeadingID(),
+		),
+		goldmark.WithRendererOptions(
+			html.WithUnsafe(),
+		),
+	)
+	buf := new(bytes.Buffer)
+
+	// Convert the markdown to HTML and check for an error
+	if err := md.Convert([]byte(content), buf); err != nil {
+		panic(err)
+	}
+
+	// Return the template.HTML
+	return template.HTML(buf.String())
 }
