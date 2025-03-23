@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -291,4 +292,78 @@ func TestEditNoteGET(t *testing.T) {
 	assert.StringIn(t, `2025-01-20`, response.body)    // created_at is editable
 	assert.StringNotIn(t, `2025-02-01`, response.body) // modified_at is not editable
 	assert.StringNotIn(t, `checked`, response.body)
+}
+
+func TestEditNotePOST(t *testing.T) {
+	// Create a new test server
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Create a new database connection for queries
+	queries := db.NewTestDatabase(t, context.Background(), os.Getenv("NOTES_TEST_DB_DSN"), false)
+
+	data := url.Values{}
+
+	note, err := queries.RandomNote(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	url := fmt.Sprintf("/note/%s/edit/", note.ID)
+
+	// Test unauthorized without login
+	response := ts.post(t, url, data, false)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+
+	// Test bad request with login
+	response = ts.post(t, url, data, true)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+
+	// Get a CSRF token for testing
+	response = ts.get(t, "/new/", true)
+	csrfToken := response.csrfToken(t)
+
+	// Try a full request without the csrf token
+	data.Add("title", "It's different now")
+	data.Add("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
+	switch note.Favorite {
+	case true:
+		data.Add("favorite", "")
+	default:
+		data.Add("favorite", "true")
+	}
+	switch note.Archive {
+	case true:
+		data.Add("archive", "")
+	default:
+		data.Add("archive", "true")
+	}
+	data.Add("note", "It's not the same anymore")
+
+	// Test bad request with csrf token
+	response = ts.post(t, url, data, true)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+
+	// Add the csrf token and try again
+	data.Add("csrf_token", csrfToken)
+
+	// Test request OK with csrf token
+	response = ts.post(t, url, data, true)
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+	assert.Equal(t, fmt.Sprintf("/note/%s/", note.ID), response.header.Get("Location"))
+
+	// Get the updated note's data
+	updatedNote, err := queries.GetNote(context.Background(), note.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Validate the updated note's data
+	assert.Equal(t, note.ID, updatedNote.ID)
+	assert.Equal(t, "It's different now", updatedNote.Title)
+	assert.Equal(t, "It's not the same anymore", updatedNote.Note)
+	assert.NotEqual(t, note.Archive, updatedNote.Archive)
+	assert.NotEqual(t, note.Favorite, updatedNote.Favorite)
+	assert.EqualTime(t, time.Now().In(timeLocation), updatedNote.CreatedAt, time.Second*61)
+	assert.EqualTime(t, time.Now().In(timeLocation), updatedNote.ModifiedAt, time.Second*61)
 }

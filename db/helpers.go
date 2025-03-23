@@ -95,7 +95,7 @@ func MigrateDown(conn *pgxpool.Pool) error {
 	return nil
 }
 
-// GenerateID makes up a text unique ID for a database record.
+// GenerateID makes up a unique ID with a prefix in the format prefix_RandomBase58ID.
 func GenerateID(prefix string) (string, error) {
 	// Validate prefix is
 	if prefix == "" {

@@ -17,6 +17,16 @@ func Equal[T comparable](t *testing.T, want, got T) {
 	}
 }
 
+// NotEqual compares two values
+func NotEqual[T comparable](t *testing.T, want, got T) {
+	t.Helper()
+
+	// Log an error if the test does not pass the Equal test
+	if want == got {
+		t.Errorf("wanted: %v; got: %v", want, got)
+	}
+}
+
 // NoError asserts that the given error is nil
 func NoError(t *testing.T, err error, msgAndArgs ...interface{}) {
 	t.Helper()
