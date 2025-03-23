@@ -36,6 +36,7 @@ func TestHealth(t *testing.T) {
 	assert.StringIn(t, vcs.Version(), response.body)
 	assert.StringIn(t, "devMode: false", response.body)
 	assert.StringIn(t, "app name:", response.body)
+	assert.StringIn(t, "time location:  America/Los_Angeles", response.body)
 }
 
 func TestListNotes(t *testing.T) {
@@ -366,4 +367,58 @@ func TestEditNotePOST(t *testing.T) {
 	assert.NotEqual(t, note.Favorite, updatedNote.Favorite)
 	assert.EqualTime(t, time.Now().In(timeLocation), updatedNote.CreatedAt, time.Second*61)
 	assert.EqualTime(t, time.Now().In(timeLocation), updatedNote.ModifiedAt, time.Second*61)
+}
+
+func TestTimeLocationGET(t *testing.T) {
+	// Create a new test server
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Test unauthorized without login
+	response := ts.get(t, "/time/", false)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+
+	// Test OK with login
+	response = ts.get(t, "/time/", true)
+	assert.Equal(t, http.StatusOK, response.statusCode)
+	assert.StringIn(t, "America/Los_Angeles", response.body)
+	assert.Equal(t, "America/Los_Angeles", timeLocation.String())
+
+	// Make up some data to change the time location
+	data := url.Values{}
+	data.Add("time_location", "America/New_York")
+
+	csrfToken := response.csrfToken(t)
+
+	// Try to update the location. Should fail without login
+	response = ts.post(t, "/time/", data, false)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+
+	// Try to update the location. Should fail without csrf
+	response = ts.post(t, "/time/", data, true)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+
+	// Update the timezone
+	data.Add("csrf_token", csrfToken)
+	response = ts.post(t, "/time/", data, true)
+	assert.Equal(t, http.StatusOK, response.statusCode)
+
+	// Get the time page again to check the update data
+	response = ts.get(t, "/time/", true)
+	assert.StringIn(t, "America/New_York", response.body)
+	assert.StringNotIn(t, "America/Los_Angeles", response.body)
+	assert.Equal(t, "America/New_York", timeLocation.String())
+
+	// change the timezone to an invalid timezone
+	data.Del("time_location")
+	data.Add("time_location", "America/NOOOOOOO")
+
+	response = ts.post(t, "/time/", data, true)
+	assert.Equal(t, http.StatusOK, response.statusCode)
+
+	// Get the time page again to the data didn't change
+	response = ts.get(t, "/time/", true)
+	assert.StringIn(t, "America/New_York", response.body)
+	assert.StringNotIn(t, "America/Los_Angeles", response.body)
+	assert.Equal(t, "America/New_York", timeLocation.String())
 }

@@ -50,6 +50,8 @@ func AddRoutes(
 	mux.Handle("POST /note/{id}/edit/", noteFormPOST(logger, devMode, sessionManager, queries))
 
 	mux.Handle("GET /health/", health(devMode))
+	mux.Handle("GET /time/", timeZone(logger, devMode, sessionManager))
+	mux.Handle("POST /time/", timeZone(logger, devMode, sessionManager))
 
 	// TODO: Remove these
 	mux.Handle("GET /import/", importNote(queries))
@@ -72,8 +74,9 @@ func health(devMode bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		fmt.Fprintln(w, "status: OK")
-		fmt.Fprintln(w, "ver: ", vcs.Version())
 		fmt.Fprintln(w, "devMode:", devMode)
+		fmt.Fprintln(w, "ver: ", vcs.Version())
+		fmt.Fprintln(w, "time location: ", timeLocation)
 		fmt.Fprintln(w, "app name: ", os.Getenv("DOKKU_APP_NAME"))
 	}
 }
@@ -537,5 +540,44 @@ func noteFormPOST(
 		// Note created or updated successfully, redirect to view the note
 		url := fmt.Sprintf("/note/%v/", note.ID)
 		http.Redirect(w, r, url, http.StatusSeeOther)
+	}
+}
+
+// timeZone allows for changing the global time. This information probably needs to be on
+// a user profile and in the session at some point in the future.
+func timeZone(logger *slog.Logger, showTrace bool, sessionManager *scs.SessionManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var err error
+
+		if r.Method == http.MethodPost {
+			// Parse the form, bad request if there is an error
+			if err := r.ParseForm(); err != nil {
+				BadRequest(w, r, err)
+				return
+			}
+
+			// New Time Location
+			currentLocation := timeLocation.String()
+			newLocation := r.FormValue("time_location")
+
+			// Load the time location
+			timeLocation, err = time.LoadLocation(newLocation)
+			if err != nil {
+				putFlashMessage(r, LevelError, err.Error(), sessionManager)
+				// reload the previous location
+				timeLocation, _ = time.LoadLocation(currentLocation)
+			}
+		}
+
+		// Create a new template data file
+		data := newTemplateData(r, sessionManager)
+		data["CurrentTimeLocation"] = timeLocation.String()
+		data["CurrentTime"] = time.Now().In(timeLocation)
+
+		// Render the page
+		if err := render.Page(w, http.StatusOK, data, "timeLocation.tmpl"); err != nil {
+			ServerError(w, r, err, logger, showTrace)
+			return
+		}
 	}
 }
