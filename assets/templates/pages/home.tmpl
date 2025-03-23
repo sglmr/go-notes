@@ -2,8 +2,8 @@
 
 {{define "page:main"}}
 <h1>Home</h1>
-
 <p><strong>Check out a random note from the past.</strong></p>
+
 <article>
     <header>
         <h2><a href="/note/{{.Note.ID}}/">{{.Note.Title}}</a></h2>
@@ -12,5 +12,5 @@
     <div class="container">
         {{.Note.Note|markdownToHTML}}
     </div>
-    </section>
-    {{end}}
+</article>
+{{end}}
