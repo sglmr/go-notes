@@ -9,8 +9,8 @@
         <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
         {{end}}
         </div>
-        <div>Created: {{.Note.CreatedAt|longDateTime}}</div>
-        <div>Modified: {{.Note.ModifiedAt|longDateTime}}</div>
+        <div>Created: {{timeInLocation .Note.CreatedAt .TimeLocation | longDateTime}}</div>
+        <div>Modified: {{timeInLocation .Note.ModifiedAt .TimeLocation | longDateTime}}</div>
  
         <div role="group" style="max-width:10ch;">
             <a role="button" href="/note/{{.Note.ID}}/edit/">Edit</a>

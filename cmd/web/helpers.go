@@ -58,9 +58,10 @@ func newTemplateData(r *http.Request, sessionManager *scs.SessionManager) map[st
 	}
 
 	return map[string]any{
-		"CSRFToken": nosurf.Token(r),
-		"Messages":  messages,
-		"Version":   vcs.Version(),
+		"CSRFToken":    nosurf.Token(r),
+		"Messages":     messages,
+		"Version":      vcs.Version(),
+		"TimeLocation": timeLocation,
 	}
 }
 

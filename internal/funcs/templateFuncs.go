@@ -24,12 +24,13 @@ var printer = message.NewPrinter(language.English)
 
 var TemplateFuncs = template.FuncMap{
 	// Time functions
-	"now":          time.Now,
-	"timeSince":    time.Since,
-	"timeUntil":    time.Until,
-	"formatTime":   formatTime,
-	"shortDate":    shortDate,
-	"longDateTime": longDateTime,
+	"now":            time.Now,
+	"timeInLocation": timeInLocation,
+	"timeSince":      time.Since,
+	"timeUntil":      time.Until,
+	"formatTime":     formatTime,
+	"shortDate":      shortDate,
+	"longDateTime":   longDateTime,
 
 	// String functions
 	"uppercase":      strings.ToUpper,
@@ -51,6 +52,11 @@ var TemplateFuncs = template.FuncMap{
 	// URL functions
 	"urlSetParam": urlSetParam,
 	"urlDelParam": urlDelParam,
+}
+
+// timeInLocation returns a time in a different location timezone
+func timeInLocation(t time.Time, loc *time.Location) time.Time {
+	return t.In(loc)
 }
 
 // formatTime returns a string formatted version of a time.Time

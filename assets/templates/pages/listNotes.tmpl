@@ -31,10 +31,11 @@
 </form>
 
 {{if .Notes}}
+{{$timeLocation := .TimeLocation}}
 <ul>
     {{range .Notes}}
     <li>
-        {{.CreatedAt|formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a>
+        {{timeInLocation .CreatedAt $timeLocation | formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a>
         <br>
         {{range .Tags}}
         <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
