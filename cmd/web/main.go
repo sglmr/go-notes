@@ -29,6 +29,8 @@ import (
 // Top level application functions
 //=============================================================================
 
+var timeLocation *time.Location
+
 func main() {
 	// Get the background context to use throughout the application
 	ctx := context.Background()
@@ -82,6 +84,7 @@ func RunApp(
 	passwordHash := fs.String("password-hash", os.Getenv("BASIC_AUTH_PASSWORD"), "Password for basic auth ('password' by default)")
 	pgdsn := fs.String("db-dsn", os.Getenv("NOTES_DB_DSN"), "PostgreSQL DSN")
 	migrate := fs.Bool("automigrate", true, "Automatically perform up migrations on startup")
+	location := fs.String("time-location", "America/Los_Angeles", "Time Location (default: America/Los_Angeles)")
 	_ = fs.String("smtp-host", "", "Email smtp host")
 	_ = fs.Int("smtp-port", 25, "Email smtp port")
 	_ = fs.String("smtp-username", "", "Email smtp username")
@@ -92,6 +95,12 @@ func RunApp(
 	err := fs.Parse(args[1:])
 	if err != nil {
 		return fmt.Errorf("parsing flags: %w", err)
+	}
+
+	// Load the time location
+	timeLocation, err = time.LoadLocation(*location)
+	if err != nil {
+		return fmt.Errorf("load location error: %w", err)
 	}
 
 	// Connect to the PostgreSQL database

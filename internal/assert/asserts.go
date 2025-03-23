@@ -65,12 +65,12 @@ func StringNotIn(t *testing.T, dontWant, inString string) {
 	}
 }
 
-// EqualTime tests if the time is equal (times are within 1s of each other)
-func EqualTime(t *testing.T, want, got time.Time) {
+// EqualTime tests if the time is equal (times are within allowedDiff of each other)
+func EqualTime(t *testing.T, want, got time.Time, allowedDiff time.Duration) {
 	t.Helper()
 	dif := got.Sub(want).Abs()
 
-	if dif > time.Second {
-		t.Errorf("wanted %v; not %v; off by %v", want, got, dif.Minutes())
+	if dif > allowedDiff {
+		t.Errorf("wanted %v; not %v; off by %v seconds", want, got, dif.Seconds())
 	}
 }

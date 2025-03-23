@@ -293,7 +293,7 @@ func noteFormGet(
 			Note:      "",
 			Favorite:  false,
 			Archive:   false,
-			CreatedAt: time.Now(),
+			CreatedAt: time.Now().In(timeLocation),
 		}
 
 		// Check if there is an id value in the url path
@@ -373,13 +373,13 @@ func importNote(
 		favorite := len(r.FormValue("favorite")) > 0
 
 		// Convert the value to time.Time
-		createdAt, err := time.Parse("2006-01-02T15:04", r.FormValue("created_at"))
+		createdAt, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("created_at"), timeLocation)
 		if err != nil {
 			BadRequest(w, r, err)
 			return
 		}
 		// Convert the value to time.Time
-		modifiedAt, err := time.Parse("2006-01-02T15:04", r.FormValue("modified_at"))
+		modifiedAt, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("modified_at"), timeLocation)
 		if err != nil {
 			BadRequest(w, r, err)
 			return
@@ -441,7 +441,6 @@ func noteFormPOST(
 
 		if len(id) > 0 {
 			// Query for a single note if there is an id
-
 			_, err := queries.GetNote(r.Context(), id)
 			if errors.Is(err, pgx.ErrNoRows) {
 				NotFound(w, r)
@@ -460,16 +459,19 @@ func noteFormPOST(
 		form.Note = r.FormValue("note")
 
 		// Convert the value to time.Time
-		form.CreatedAt, err = time.Parse("2006-01-02T15:04", r.FormValue("created_at"))
+		form.CreatedAt, err = time.ParseInLocation("2006-01-02T15:04", r.FormValue("created_at"), timeLocation)
 		if err != nil {
 			form.AddError("CreatedAt", "invalid date time")
-			form.CreatedAt = time.Now()
+			form.CreatedAt = time.Now().In(timeLocation)
 		}
 
 		// If title is blank, use the first line of the note content
 		if form.Title == "" {
-			t := strings.SplitN(form.Note, "\n", 1)[0]
-			form.Title = strings.TrimSpace(t)
+			before, _, found := strings.Cut(form.Note, "\n")
+			if found {
+				form.Title = strings.TrimSpace(before)
+			}
+
 		}
 
 		// Validate the form fields
@@ -486,7 +488,8 @@ func noteFormPOST(
 			}
 		}
 
-		if len(id) > 0 {
+		switch {
+		case len(id) > 0:
 			// Update an existing Note
 			params := db.UpdateNoteParams{
 				ID:        id,
@@ -503,7 +506,10 @@ func noteFormPOST(
 				ServerError(w, r, err, logger, showTrace)
 				return
 			}
-		} else {
+
+		default:
+			// Create a new note
+
 			// Create an ID for the note
 			id, err = db.GenerateID("n")
 			if err != nil {
@@ -517,6 +523,7 @@ func noteFormPOST(
 				Note:      form.Note,
 				Favorite:  form.Favorite,
 				CreatedAt: form.CreatedAt,
+				Archive:   form.Archive,
 				Tags:      extractTags(form.Note),
 			}
 			logger.Debug("creating a note", "params", params)

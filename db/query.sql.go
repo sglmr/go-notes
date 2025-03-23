@@ -32,7 +32,7 @@ insert into notes (
         modified_at,
         tags
     )
-values ($1, $2, $3, false, $4, $5, NOW(), $6)
+values ($1, $2, $3, $4, $5, $6, NOW(), $7)
 returning id, title, note, archive, favorite, created_at, modified_at, tags
 `
 
@@ -40,6 +40,7 @@ type CreateNoteParams struct {
 	ID        string
 	Title     string
 	Note      string
+	Archive   bool
 	Favorite  bool
 	CreatedAt time.Time
 	Tags      []string
@@ -50,6 +51,7 @@ func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, e
 		arg.ID,
 		arg.Title,
 		arg.Note,
+		arg.Archive,
 		arg.Favorite,
 		arg.CreatedAt,
 		arg.Tags,

@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/sglmr/go-notes/db"
 	"github.com/sglmr/go-notes/internal/assert"
 	"github.com/sglmr/go-notes/internal/vcs"
 )
@@ -147,6 +152,114 @@ func TestNewNoteGET(t *testing.T) {
 	assert.StringIn(t, `<input type="checkbox" id="archive" name="archive" role="switch"`, response.body)
 	assert.StringIn(t, `textarea id="note" name="note" placeholder="Note content..."`, response.body)
 	assert.StringIn(t, `<input type="submit" value="Submit">`, response.body)
+}
+
+func TestNewNotePOST(t *testing.T) {
+	// Create a new test server
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Create a new database connection for queries
+	queries := db.NewTestDatabase(t, context.Background(), os.Getenv("NOTES_TEST_DB_DSN"), false)
+
+	data := url.Values{}
+
+	// Test unauthorized without login
+	response := ts.post(t, "/new/", data, false)
+	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+
+	// Test bad request with login
+	response = ts.post(t, "/new/", data, true)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+
+	// Get a CSRF token for testing
+	response = ts.get(t, "/new/", true)
+	csrfToken := response.csrfToken(t)
+
+	// Try a full request without the csrf token
+	data.Add("title", "A Shiny New Post")
+	data.Add("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
+	data.Add("favorite", "on")
+	data.Add("archive", "on")
+	data.Add("note", `just #testing with #fishing and not [link](#link) or href="#that"`)
+
+	// Post should fail without a csrf token
+	response = ts.post(t, "/new/", data, true)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+
+	// Post should succeed with a csrf token
+	data.Add("csrf_token", csrfToken)
+	response = ts.post(t, "/new/", data, true)
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+
+	// Check the reditect location
+	nextLocation := response.header.Get("Location")
+	assert.StringIn(t, "/note/n_", nextLocation)
+
+	// Get the postID from the new post
+	newPostID := strings.Split(nextLocation, "/")[2]
+	assert.StringIn(t, "n_", newPostID)
+
+	// Query the new post from the database
+	note, err := queries.GetNote(context.Background(), newPostID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Validate the new post data in the database
+	assert.Equal(t, "A Shiny New Post", note.Title)
+	assert.EqualTime(t, time.Now().In(timeLocation), note.CreatedAt, time.Second*61)
+	assert.EqualTime(t, time.Now().In(timeLocation), note.ModifiedAt, time.Second*61)
+	assert.Equal(t, `just #testing with #fishing and not [link](#link) or href="#that"`, note.Note)
+	assert.Equal(t, true, note.Archive)
+	assert.Equal(t, true, note.Favorite)
+	assert.EqualSlices(t, []string{"testing", "fishing"}, note.Tags)
+
+	// Try another new post without the created_at, it should fail
+	data.Del("created_at")
+	response = ts.post(t, "/new/", data, true)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+
+	// Try another without any note content, it should fail
+	data.Add("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
+	data.Del("note")
+
+	response = ts.post(t, "/new/", data, true)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+
+	// Try a new note with more minimal data
+	data.Del("title")
+	data.Add("note", "This note is out of control\n\nor not")
+	data.Del("favorite")
+	data.Del("archive")
+
+	// Should be okay
+	response = ts.post(t, "/new/", data, true)
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+
+	// Check the reditect location
+	nextLocation = response.header.Get("Location")
+	assert.StringIn(t, "/note/n_", nextLocation)
+
+	// Get the postID from the new post
+	newPostID = strings.Split(nextLocation, "/")[2]
+	assert.StringIn(t, "n_", newPostID)
+
+	// Query the new post from the database
+	note, err = queries.GetNote(context.Background(), newPostID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Validate the contents of the note
+
+	assert.Equal(t, "This note is out of control", note.Title)
+	assert.EqualTime(t, time.Now().In(timeLocation), note.CreatedAt, time.Second*61)
+	assert.EqualTime(t, time.Now().In(timeLocation), note.ModifiedAt, time.Second*61)
+	assert.Equal(t, "This note is out of control\n\nor not", note.Note)
+	assert.Equal(t, false, note.Archive)
+	assert.Equal(t, false, note.Favorite)
+	assert.Equal(t, 0, len(note.Tags))
 }
 
 func TestEditNoteGET(t *testing.T) {

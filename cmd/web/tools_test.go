@@ -35,15 +35,19 @@ type testServer struct {
 
 // newTestServer creates a test server for integration tests.
 func newTestServer(t *testing.T) *testServer {
+	var err error
+
+	// Load the time location
+	timeLocation, err = time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Create a new serve mux
 	mux := http.NewServeMux()
 
-	ctx := context.Background()
-
 	// Set up the test database
-	dbCtx, dbCtxCancel := context.WithTimeout(ctx, time.Second*2)
-	defer dbCtxCancel()
-	queries := db.NewTestDB(t, dbCtx, os.Getenv("NOTES_TEST_DB_DSN"))
+	queries := db.NewTestDatabase(t, context.Background(), os.Getenv("NOTES_TEST_DB_DSN"), true)
 
 	// Create an io.Discard logger for testing
 	logger := slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
