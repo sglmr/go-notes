@@ -2,20 +2,21 @@
 
 {{define "page:main"}}
 
-<article>
-    <h1>Change the Local Time</h1>
-    <p>The current time is {{.CurrentTime|longDateTime}}</p>
-    <p>
-      To change the time zone, submit the form with a valid <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">tz database time zone</a>.
-    </p>
+<h1>Change the Local Time</h1>
+<p>The current time is {{.CurrentTime|longDateTime}}</p>
+<p>
+    To change the time zone, submit the form with a valid <a
+        href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">tz database time zone</a>.
+</p>
 
-    <form id="time-location-form" method="POST" style="max-width:30ch">
-        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
-        <fieldset>
-            <input name="time_location" id="time_location" value="{{.CurrentTimeLocation}}" placeholder= "Enter a IANA time location" required>
-        </fieldset>
+<form id="time-location-form" method="POST" style="max-width:30ch">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
 
-        <input type="submit" value="Submit">
-    </form>
-</article>
+    <input name="time_location" id="time_location" value="{{.CurrentTimeLocation}}"
+        placeholder="Enter a IANA time location" required>
+
+
+    <input type="submit" value="Submit">
+</form>
+
 {{end}}

@@ -3,48 +3,51 @@
 {{define "page:main"}}
 <h1>Notes</h1>
 
-<form method="GET" action="/search/" style="max-width:33vw">
-    <!-- text search input -->
-    <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Query.Q}}">
-    
-    <!-- tag list dropdown -->
-    {{ $tag := .Query.Tag}}
-    <select name="tag" id="tag" aria-label="Select a tag...">
-        <option {{if eq (len $tag) 0}}selected{{end}} value="">
-          Select a tag...
-        </option>
-        {{range .TagList}}
-        <option value="{{.TagName}}" {{if eq .TagName $tag}}selected{{end}}>{{.TagName}} ({{.NoteCount}})</option>
-        {{end}}
-      </select>
-    
-      <!-- checkboxes -->
-      <fieldset>
-        <input type="checkbox" id="favorites" name="favorites" {{if .Query.Favorites}}checked{{end}}/>
-        <label htmlFor="favorites">Favorites</label>
-        <input type="checkbox" id="archived" name="archived" {{if .Query.Archived}}checked{{end}}/>
-        <label htmlFor="archived">Include Archived</label>
-      </fieldset>
 
-      <!-- submit -->
-    <input type="submit" value="Search">
+<form method="GET" action="/search/" style="max-width:33vw">
+  <!-- text search input -->
+  <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Query.Q}}">
+
+  <!-- tag list dropdown -->
+  {{ $tag := .Query.Tag}}
+  <select name="tag" id="tag" aria-label="Select a tag...">
+    <option {{if eq (len $tag) 0}}selected{{end}} value="">
+      Select a tag...
+    </option>
+    {{range .TagList}}
+    <option value="{{.TagName}}" {{if eq .TagName $tag}}selected{{end}}>{{.TagName}} ({{.NoteCount}})</option>
+    {{end}}
+  </select>
+
+  <!-- checkboxes -->
+  <div>
+    <label for="favorites">
+      <input type="checkbox" id="favorites" name="favorites" {{if .Query.Favorites}}checked{{end}} />
+      Favorites</label>
+    <label for="archived">
+      <input type="checkbox" id="archived" name="archived" {{if .Query.Archived}}checked{{end}} />
+      Include Archived</label>
+  </div>
+
+
+  <!-- submit -->
+  <input type="submit" value="Search">
 </form>
 
 {{if .Notes}}
 {{$timeLocation := .TimeLocation}}
 <ul>
-    {{range .Notes}}
-    <li>
-        {{timeInLocation .CreatedAt $timeLocation | formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a>
-        <br>
-        {{range .Tags}}
-        <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
-        {{end}}
-    </li>
+  {{range .Notes}}
+  <li>
+    {{timeInLocation .CreatedAt $timeLocation | formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a>
+    <br>
+    {{range .Tags}}
+    <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
     {{end}}
+  </li>
+  {{end}}
 </ul>
 {{else}}
 <p>No Notes</p>
 {{end}}
-
 {{end}}
