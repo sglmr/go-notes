@@ -12,15 +12,15 @@
 
 </head>
 
-<body>
-    <header>
+<body class="m-auto p-4">
+    <header class="mx-auto max-w-2xl">
         {{template "partial:nav" .}}
     </header>
-    <main>
+    <main class="mx-auto max-w-xl my-8">
         {{template "partial:flashMessages" .}}
         {{template "page:main" .}}
     </main>
-    <footer>
+    <footer class="max-w-l flex justify-around mt-4">
         <small>
             &copy; {{now | formatTime "2006"}}
             <br>

@@ -17,7 +17,7 @@
             <a role="button" class="outline" href="/note/{{.Note.ID}}/delete/">Delete</a>
         </div>
     </header>
-    <div class="container">
+    <div class="prose">
         {{.Note.Note|markdownToHTML}}
     </div>
 </article>
