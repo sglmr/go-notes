@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"io"
@@ -31,18 +32,23 @@ import (
 
 var timeLocation *time.Location
 
+func init() {
+	gob.Register(FlashMessage{})
+	gob.Register([]FlashMessage{})
+}
+
 func main() {
 	// Get the background context to use throughout the application
 	ctx := context.Background()
 
 	// Run the application
-	if err := RunApp(ctx, os.Stdout, os.Args, os.Getenv); err != nil {
+	if err := runApp(ctx, os.Stdout, os.Args, os.Getenv); err != nil {
 		log.Fatal("error runnning app: ", err.Error())
 	}
 }
 
-// NewServer is a constructor that takes in all dependencies as arguments
-func NewServer(
+// newServer is a constructor that takes in all dependencies as arguments
+func newServer(
 	logger *slog.Logger,
 	devMode bool,
 	mailer email.MailerInterface,
@@ -55,13 +61,25 @@ func NewServer(
 	logger.Debug("creating server")
 	mux := http.NewServeMux()
 
-	// Register the home handler for the root route
-	httpHandler := AddRoutes(mux, logger, devMode, mailer, username, passwordHash, wg, sessionManager, queries)
+	// Add routes the ServeMux
+	addRoutes(mux, logger, devMode, mailer, username, passwordHash, wg, sessionManager, queries)
 
-	return httpHandler
+	// Add middleare chain for all the routes
+	var handler http.Handler = mux
+	handler = recoverPanicMW(mux, logger, devMode)
+	handler = SecureHeadersMW(handler)
+	handler = csrfMW(handler)
+	handler = authenticateMW(sessionManager)(handler)
+
+	// Always apply session middlewaare last in the chain (first to execute)
+	handler = sessionManager.LoadAndSave(handler)
+	handler = LogRequestMW(logger)(handler)
+
+	// Return everything
+	return handler
 }
 
-func RunApp(
+func runApp(
 	ctx context.Context,
 	w io.Writer,
 	args []string,
@@ -172,7 +190,7 @@ func RunApp(
 	}
 
 	// Set up router
-	srv := NewServer(logger, *devMode, mailer, *username, *passwordHash, &wg, sessionManager, queries)
+	srv := newServer(logger, *devMode, mailer, *username, *passwordHash, &wg, sessionManager, queries)
 
 	// Configure an http server
 	httpServer := &http.Server{
@@ -225,8 +243,8 @@ func RunApp(
 	return nil
 }
 
-// BackgroundTask executes a function in a background goroutine with proper error handling.
-func BackgroundTask(wg *sync.WaitGroup, logger *slog.Logger, fn func() error) {
+// backgroundTask executes a function in a background goroutine with proper error handling.
+func backgroundTask(wg *sync.WaitGroup, logger *slog.Logger, fn func() error) {
 	// Increment waitgroup to track whether this background task is complete or not
 	wg.Add(1)
 

@@ -12,14 +12,32 @@ import (
 	"github.com/sglmr/go-notes/internal/vcs"
 )
 
+type contextKey string
+
+//=============================================================================
+// Authentication Helpers
+//=============================================================================
+
+const isAuthenticatedContextKey = contextKey("isAuthenticated")
+
+// isAuthenticated returns true when a user is authenticated. The function checks the
+// request context for a isAuthenticatedContextKey value
+func isAuthenticated(r *http.Request) bool {
+	isAuthenticated, ok := r.Context().Value(isAuthenticatedContextKey).(bool)
+	if !ok {
+		return false
+	}
+	return isAuthenticated
+}
+
 //=============================================================================
 // Response Helpers
 //=============================================================================
 
 // ServerError handles server error http responses.
-func ServerError(w http.ResponseWriter, r *http.Request, err error, logger *slog.Logger, showTrace bool) {
+func serverError(w http.ResponseWriter, r *http.Request, err error, logger *slog.Logger, showTrace bool) {
 	// TODO: find some way of reporting the server error
-	// app.reportServerError(r, err)
+	// app.reportserverError(r, err)
 
 	message := "The server encountered a problem and could not process your request"
 
@@ -46,6 +64,12 @@ func BadRequest(w http.ResponseWriter, r *http.Request, err error) {
 	http.Error(w, body, http.StatusBadRequest)
 }
 
+// Unauthorized hadles unauthorized http responses.
+func Unauthorized(w http.ResponseWriter, r *http.Request, err error) {
+	body := fmt.Sprint(http.StatusText(http.StatusUnauthorized), ": ", err.Error())
+	http.Error(w, body, http.StatusUnauthorized)
+}
+
 //=============================================================================
 // Template Helpers
 //=============================================================================
@@ -58,10 +82,11 @@ func newTemplateData(r *http.Request, sessionManager *scs.SessionManager) map[st
 	}
 
 	return map[string]any{
-		"CSRFToken":    nosurf.Token(r),
-		"Messages":     messages,
-		"Version":      vcs.Version(),
-		"TimeLocation": timeLocation,
+		"CSRFToken":       nosurf.Token(r),
+		"IsAuthenticated": isAuthenticated(r),
+		"Messages":        messages,
+		"TimeLocation":    timeLocation,
+		"Version":         vcs.Version(),
 	}
 }
 
@@ -102,8 +127,6 @@ func extractTags(text string) []string {
 //=============================================================================
 // Flash Message functions
 //=============================================================================
-
-type contextKey string
 
 const flashMessageKey = "messages"
 

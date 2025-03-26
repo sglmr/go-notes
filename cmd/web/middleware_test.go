@@ -92,7 +92,7 @@ func TestRecoverPanicMW(t *testing.T) {
 
 	// Pass the mock HTTP handler to the RecoverPanicMW middleware.
 	// Call ServeHTTP to execute it.
-	RecoverPanicMW(next, testLogger, false).ServeHTTP(rr, r)
+	recoverPanicMW(next, testLogger, false).ServeHTTP(rr, r)
 
 	// Get the results of the test
 	rs := rr.Result()
@@ -143,7 +143,7 @@ func TestBasicAuthMWUnauthorized(t *testing.T) {
 	// Pass the mock HTTP handler to the BasicAuthMW middleware.
 	// Call ServeHTTP to execute it.
 	// Hashed password is 'password'
-	mw := BasicAuthMW(testUsername, testPasswordHash, testLogger)
+	mw := basicAuthMW(testUsername, testPasswordHash, testLogger)
 	mw(next).ServeHTTP(rr, r)
 
 	// Get the results of the test
@@ -184,7 +184,7 @@ func TestBasicAuthMWOK(t *testing.T) {
 	// Pass the mock HTTP handler to the BasicAuthMW middleware.
 	// Call ServeHTTP to execute it.
 	// Hashed password is 'password'
-	mw := BasicAuthMW(testUsername, testPasswordHash, testLogger)
+	mw := basicAuthMW(testUsername, testPasswordHash, testLogger)
 	mw(next).ServeHTTP(rr, r)
 
 	// Get the results of the test

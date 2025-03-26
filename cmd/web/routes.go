@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -15,58 +14,49 @@ import (
 	"github.com/justinas/nosurf"
 	"github.com/sglmr/go-notes/assets"
 	"github.com/sglmr/go-notes/db"
+	"github.com/sglmr/go-notes/internal/argon2id"
 	"github.com/sglmr/go-notes/internal/email"
 	"github.com/sglmr/go-notes/internal/render"
 	"github.com/sglmr/go-notes/internal/validator"
 	"github.com/sglmr/go-notes/internal/vcs"
 )
 
-// AddRoutes adds all the routes to the mux
-func AddRoutes(
+// addRoutes adds all the routes to the mux
+func addRoutes(
 	mux *http.ServeMux,
 	logger *slog.Logger,
 	devMode bool,
 	mailer email.MailerInterface,
-	username, passwordHash string,
+	email, passwordHash string,
 	wg *sync.WaitGroup,
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
-) http.Handler {
+) {
 	// Set up file server for embedded static files
-	// fileserver := http.FileServer(http.FS(assets.EmbeddedFiles))
 	fileServer := http.FileServer(http.FS(staticFileSystem{assets.EmbeddedFiles}))
-	mux.Handle("GET /static/", CacheControlMW("31536000")(fileServer))
+	mux.Handle("GET /static/", cacheControlMW("31536000")(fileServer))
 
-	mux.Handle("GET /", home(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /list/", listNotes(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /search/", listNotes(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /note/{id}/", viewNote(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /new/", noteFormGet(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /note/{id}/delete/", deleteNote(logger, devMode, sessionManager, queries))
-	mux.Handle("POST /note/{id}/delete/", deleteNote(logger, devMode, sessionManager, queries))
-	mux.Handle("GET /note/{id}/edit/", noteFormGet(logger, devMode, sessionManager, queries))
-
-	mux.Handle("POST /new/", noteFormPOST(logger, devMode, sessionManager, queries))
-	mux.Handle("POST /note/{id}/edit/", noteFormPOST(logger, devMode, sessionManager, queries))
-
+	// These routes are not protected
+	mux.Handle("GET /login/", login(logger, sessionManager, devMode, email, passwordHash))
+	mux.Handle("POST /login/", login(logger, sessionManager, devMode, email, passwordHash))
 	mux.Handle("GET /health/", health(devMode))
-	mux.Handle("GET /time/", timeZone(logger, devMode, sessionManager))
-	mux.Handle("POST /time/", timeZone(logger, devMode, sessionManager))
 
-	// TODO: Remove these
-	mux.Handle("GET /import/", importNote(queries))
-	mux.Handle("POST /import/", importNote(queries))
-
-	handler := RecoverPanicMW(mux, logger, devMode)
-	if os.Getenv("DOKKU_APP_NAME") != "" {
-		handler = SecureHeadersMW(handler)
-	}
-	handler = LogRequestMW(logger)(handler)
-	handler = CsrfMW(handler)
-	handler = sessionManager.LoadAndSave(handler)
-
-	// Use Basic auth for everything
-	return BasicAuthMW(username, passwordHash, logger)(handler)
+	// These routes are protected
+	protected := requireLoginMW(sessionManager)
+	mux.Handle("GET /", protected(home(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /list/", protected(listNotes(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /search/", protected(listNotes(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /note/{id}/", protected(viewNote(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /new/", protected(noteFormGet(logger, devMode, sessionManager, queries)))
+	mux.Handle("POST /new/", protected(noteFormPOST(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /note/{id}/delete/", protected(deleteNote(logger, devMode, sessionManager, queries)))
+	mux.Handle("POST /note/{id}/delete/", protected(deleteNote(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /note/{id}/edit/", protected(noteFormGet(logger, devMode, sessionManager, queries)))
+	mux.Handle("POST /note/{id}/edit/", protected(noteFormPOST(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /time/", protected(timeZone(logger, devMode, sessionManager)))
+	mux.Handle("POST /time/", protected(timeZone(logger, devMode, sessionManager)))
+	mux.Handle("GET /import/", protected(importNote(queries)))
+	mux.Handle("POST /import/", protected(importNote(queries)))
 }
 
 // health handles a healthcheck response "OK"
@@ -77,7 +67,6 @@ func health(devMode bool) http.HandlerFunc {
 		fmt.Fprintln(w, "devMode:", devMode)
 		fmt.Fprintln(w, "ver: ", vcs.Version())
 		fmt.Fprintln(w, "time location: ", timeLocation)
-		fmt.Fprintln(w, "app name: ", os.Getenv("DOKKU_APP_NAME"))
 	}
 }
 
@@ -99,7 +88,7 @@ func home(
 		// Query for a random note
 		note, err := queries.RandomNote(r.Context())
 		if err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 
@@ -108,9 +97,106 @@ func home(
 		data["Note"] = note
 
 		if err := render.Page(w, http.StatusOK, data, "home.tmpl"); err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
+	}
+}
+
+// login handles logins
+func login(logger *slog.Logger, sessionManager *scs.SessionManager, showTrace bool, email, passwordHash string) http.HandlerFunc {
+	// Login form object
+	type loginForm struct {
+		Email    string
+		Password string
+		validator.Validator
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the "next" url parameter for the page to redirect to on successful login
+		nextURL := r.URL.Query().Get("next")
+		logger.Debug("login next", "next", nextURL)
+		if len(nextURL) == 0 {
+			// Set to home if there was not next url
+			nextURL = "/"
+		}
+
+		// Render form for a GET request
+		if r.Method == http.MethodGet {
+			data := newTemplateData(r, sessionManager)
+			data["Form"] = loginForm{}
+
+			// Render the login page
+			if err := render.Page(w, http.StatusOK, data, "login.tmpl"); err != nil {
+				serverError(w, r, err, logger, showTrace)
+				return
+			}
+			return
+		}
+
+		// Parse the form data
+		err := r.ParseForm()
+		if err != nil {
+			BadRequest(w, r, fmt.Errorf("parse post data: %w", err))
+			return
+		}
+
+		// Create a form with the data
+		form := loginForm{
+			Email:    r.FormValue("email"),
+			Password: r.FormValue("password"),
+		}
+
+		// Validate the form data
+		form.Check("Email", validator.NotBlank(form.Email), "This field cannot be blank.")
+		form.Check("Email", validator.MaxRunes(form.Email, 50), "This field cannot be more than 100 characters.")
+		form.Check("Email", validator.IsEmail(form.Email), "Email must be a valid email.")
+		form.Check("Password", validator.NotBlank(form.Password), "This field cannot be blank.")
+		form.Check("Password", validator.MaxRunes(form.Password, 100), "This field cannot be more than 150 characters.")
+
+		// Return form errors if the form is not valid
+		if form.HasErrors() {
+			putFlashMessage(r, LevelError, "please correct the form errors", sessionManager)
+			data := newTemplateData(r, sessionManager)
+			data["Form"] = form
+
+			// Render the login page
+			if err := render.Page(w, http.StatusOK, data, "login.tmpl"); err != nil {
+				serverError(w, r, err, logger, showTrace)
+				return
+			}
+			return
+		}
+
+		// Check if there is a matching email
+		if email != form.Email {
+			Unauthorized(w, r, err)
+			return
+		}
+
+		// Check whether the hashed pasword for the user and the plain text password provided match
+		match, err := argon2id.ComparePasswordAndHash(form.Password, passwordHash)
+		switch {
+		case err != nil:
+			serverError(w, r, err, logger, showTrace)
+			return
+		case !match:
+			Unauthorized(w, r, err)
+			return
+		}
+
+		// Renew token after login to change the session ID
+		err = sessionManager.RenewToken(r.Context())
+		if err != nil {
+			serverError(w, r, err, logger, showTrace)
+			return
+		}
+
+		// Set the authenticated session key
+		sessionManager.Put(r.Context(), "authenticated", true)
+		putFlashMessage(r, LevelSuccess, "You are in!", sessionManager)
+
+		// Redirect to the next page.
+		http.Redirect(w, r, nextURL, http.StatusSeeOther)
 	}
 }
 
@@ -145,7 +231,7 @@ func listNotes(
 			// List of all notes
 			n, err := queries.ListNotes(r.Context())
 			if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 			notes = n
@@ -160,7 +246,7 @@ func listNotes(
 			logger.Debug("tag search params", "params", params)
 			n, err := queries.SearchNotes(r.Context(), params)
 			if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 			notes = n
@@ -172,7 +258,7 @@ func listNotes(
 		// Query for a list of tags
 		tagList, err := queries.GetTagsWithCounts(r.Context())
 		if err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 
@@ -186,7 +272,7 @@ func listNotes(
 
 		// Render the page
 		if err := render.Page(w, http.StatusOK, data, "listNotes.tmpl"); err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 	}
@@ -212,7 +298,7 @@ func viewNote(
 			NotFound(w, r)
 			return
 		} else if err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 
@@ -221,7 +307,7 @@ func viewNote(
 
 		// Render the page
 		if err := render.Page(w, http.StatusOK, data, "viewNote.tmpl"); err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 	}
@@ -244,7 +330,7 @@ func deleteNote(
 			NotFound(w, r)
 			return
 		} else if err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 
@@ -256,13 +342,13 @@ func deleteNote(
 
 			// Render the page
 			if err := render.Page(w, http.StatusOK, data, "deleteNote.tmpl"); err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 		case http.MethodPost:
 			err := queries.DeleteNote(r.Context(), id)
 			if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 			}
 
 			http.Redirect(w, r, "/list/", http.StatusSeeOther)
@@ -309,7 +395,7 @@ func noteFormGet(
 				NotFound(w, r)
 				return
 			} else if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 
@@ -330,7 +416,7 @@ func noteFormGet(
 
 		// Render the page
 		if err := render.Page(w, http.StatusOK, data, "noteForm.tmpl"); err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 	}
@@ -449,7 +535,7 @@ func noteFormPOST(
 				NotFound(w, r)
 				return
 			} else if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 		}
@@ -478,15 +564,15 @@ func noteFormPOST(
 		}
 
 		// Validate the form fields
-		form.Check(validator.NotBlank(form.Title), "Title", "title is required")
-		form.Check(validator.NotBlank(form.Note), "Note", "note content is required")
-		form.Check(!form.CreatedAt.IsZero(), "CreatedAt", "must be a valid date time")
+		form.Check("Title", validator.NotBlank(form.Title), "title is required")
+		form.Check("Note", validator.NotBlank(form.Note), "note content is required")
+		form.Check("CreatedAt", !form.CreatedAt.IsZero(), "must be a valid date time")
 
 		// Return the form data and re-render the form page if there are any errors
 		if form.HasErrors() {
 			data["Form"] = form
 			if err := render.Page(w, http.StatusBadRequest, data, "noteForm.tmpl"); err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 		}
@@ -506,7 +592,7 @@ func noteFormPOST(
 			logger.Debug("updating a note", "params", params)
 			note, err = queries.UpdateNote(r.Context(), params)
 			if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 
@@ -516,7 +602,7 @@ func noteFormPOST(
 			// Create an ID for the note
 			id, err = db.GenerateID("n")
 			if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 			// Create a new note
@@ -532,7 +618,7 @@ func noteFormPOST(
 			logger.Debug("creating a note", "params", params)
 			note, err = queries.CreateNote(r.Context(), params)
 			if err != nil {
-				ServerError(w, r, err, logger, showTrace)
+				serverError(w, r, err, logger, showTrace)
 				return
 			}
 		}
@@ -576,7 +662,7 @@ func timeZone(logger *slog.Logger, showTrace bool, sessionManager *scs.SessionMa
 
 		// Render the page
 		if err := render.Page(w, http.StatusOK, data, "timeLocation.tmpl"); err != nil {
-			ServerError(w, r, err, logger, showTrace)
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 	}

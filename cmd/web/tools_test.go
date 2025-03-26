@@ -43,9 +43,6 @@ func newTestServer(t *testing.T) *testServer {
 		t.Fatal(err)
 	}
 
-	// Create a new serve mux
-	mux := http.NewServeMux()
-
 	// Set up the test database
 	queries := db.NewTestDatabase(t, context.Background(), os.Getenv("NOTES_TEST_DB_DSN"), true)
 
@@ -60,12 +57,7 @@ func newTestServer(t *testing.T) *testServer {
 	// Create a test mailer (io.Discard)
 	mailer := email.NewLogMailer(logger)
 
-	// Initialize other required vairables for routes
-
-	wg := sync.WaitGroup{}
-
-	// Create the httpHandler
-	handler := AddRoutes(mux, logger, false, mailer, testUsername, testPasswordHash, &wg, sessionManager, queries)
+	handler := newServer(logger, false, mailer, testUsername, testPasswordHash, &sync.WaitGroup{}, sessionManager, queries)
 
 	// Initialize a new test server
 	ts := httptest.NewTLSServer(handler)

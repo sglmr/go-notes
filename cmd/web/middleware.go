@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/alexedwards/scs/v2"
 	"github.com/justinas/nosurf"
 	"github.com/sglmr/go-notes/internal/argon2id"
 )
@@ -53,8 +56,8 @@ func (sfs staticFileSystem) Open(path string) (fs.File, error) {
 	return f, nil
 }
 
-// CacheControlMW sets the Cache-Control header
-func CacheControlMW(age string) func(http.Handler) http.Handler {
+// cacheControlMW sets the Cache-Control header
+func cacheControlMW(age string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Cache-Control", fmt.Sprintf("public, max-age=%s", age))
@@ -63,13 +66,13 @@ func CacheControlMW(age string) func(http.Handler) http.Handler {
 	}
 }
 
-// RecoverPanicMW recovers from panics to avoid crashing the whole server
-func RecoverPanicMW(next http.Handler, logger *slog.Logger, showTrace bool) http.Handler {
+// recoverPanicMW recovers from panics to avoid crashing the whole server
+func recoverPanicMW(next http.Handler, logger *slog.Logger, showTrace bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			err := recover()
 			if err != nil {
-				ServerError(w, r, fmt.Errorf("%s", err), logger, showTrace)
+				serverError(w, r, fmt.Errorf("%s", err), logger, showTrace)
 			}
 		}()
 
@@ -89,7 +92,7 @@ func SecureHeadersMW(next http.Handler) http.Handler {
 	})
 }
 
-// LogRequestMW logs the http request
+// logRequestMW logs the http request
 func LogRequestMW(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -105,8 +108,8 @@ func LogRequestMW(logger *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// CsrfMW protects specific routes against CSRF.
-func CsrfMW(next http.Handler) http.Handler {
+// csrfMW protects specific routes against CSRF.
+func csrfMW(next http.Handler) http.Handler {
 	csrfHandler := nosurf.New(next)
 	csrfHandler.SetBaseCookie(http.Cookie{
 		HttpOnly: true,
@@ -116,8 +119,8 @@ func CsrfMW(next http.Handler) http.Handler {
 	return csrfHandler
 }
 
-// BasicAuthMW restricts routes for basic authentication
-func BasicAuthMW(username, passwordHash string, logger *slog.Logger) func(http.Handler) http.Handler {
+// basicAuthMW restricts routes for basic authentication
+func basicAuthMW(username, passwordHash string, logger *slog.Logger) func(http.Handler) http.Handler {
 	authError := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
 
@@ -150,6 +153,51 @@ func BasicAuthMW(username, passwordHash string, logger *slog.Logger) func(http.H
 				return
 			}
 			// Serve the next http request
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// requireLoginMW checks if a user is authenticated, and if not, redirects them to the login page.
+func requireLoginMW(sessionManager *scs.SessionManager) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Redirect to login if the user isn't authenticated
+			if !isAuthenticated(r) {
+				redirectURL := "/login/?next=" + url.QueryEscape(r.RequestURI)
+				http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+				return
+			}
+
+			// Set cache control to no-store so that these pages aren't cached
+			w.Header().Add("Cache-Control", "no-store")
+
+			// Call the next handler
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// authenticateMW sets a context isAuthenticatedContextKey to true if a user is authenticated
+// This middleware can also add user attributes to the request context to reduce queries for user or session data to the database.
+func authenticateMW(sessionManager *scs.SessionManager) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authenticated := sessionManager.GetBool(r.Context(), "authenticated")
+			if !authenticated {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Check that user exists in the database
+			// TODO with database: Not applicable without a users table
+
+			// If the user exists then create a new copy of the request
+			// with the isAuthenticatedContextKey set to true
+			ctx := context.WithValue(r.Context(), isAuthenticatedContextKey, true)
+			r = r.WithContext(ctx)
+
+			// Call the next handler
 			next.ServeHTTP(w, r)
 		})
 	}

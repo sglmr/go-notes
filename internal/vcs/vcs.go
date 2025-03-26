@@ -2,6 +2,7 @@ package vcs
 
 import (
 	"fmt"
+	"os"
 	"runtime/debug"
 )
 
@@ -9,6 +10,11 @@ func Version() string {
 	var modified bool
 	var revision string
 	var time string
+
+	// GIT_REV is a environment variable on dokku
+	if os.Getenv("GIT_REV") != "" {
+		return os.Getenv("GIT_REV")
+	}
 
 	// Get the build info from the currently running binary
 	bi, ok := debug.ReadBuildInfo()
