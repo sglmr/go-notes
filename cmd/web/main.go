@@ -52,7 +52,7 @@ func newServer(
 	logger *slog.Logger,
 	devMode bool,
 	mailer email.MailerInterface,
-	username, passwordHash string,
+	authEmail, passwordHash string,
 	wg *sync.WaitGroup,
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
@@ -62,7 +62,7 @@ func newServer(
 	mux := http.NewServeMux()
 
 	// Add routes the ServeMux
-	addRoutes(mux, logger, devMode, mailer, username, passwordHash, wg, sessionManager, queries)
+	addRoutes(mux, logger, devMode, authEmail, passwordHash, wg, sessionManager, queries)
 
 	// Add middleare chain for all the routes
 	var handler http.Handler = mux
@@ -96,9 +96,9 @@ func runApp(
 	host := fs.String("host", "0.0.0.0", "Server host")
 	port := fs.String("port", "", "Server port")
 	devMode := fs.Bool("dev", false, "Development mode. Displays stack trace & more verbose logging")
-	username := fs.String("username", os.Getenv("BASIC_AUTH_USERNAME"), "Username basic auth")
-	passwordHash := fs.String("password-hash", os.Getenv("BASIC_AUTH_PASSWORD"), "Password for basic auth ('password' by default)")
-	pgdsn := fs.String("db-dsn", os.Getenv("NOTES_DB_DSN"), "PostgreSQL DSN")
+	authEmail := fs.String("auth-email", getenv("AUTH_EMAIL"), "Email for auth")
+	authPasswordHash := fs.String("auth-password-hash", getenv("AUTH_PASSWORD_HASH"), "Password hash for auth")
+	pgdsn := fs.String("db-dsn", getenv("NOTES_DB_DSN"), "PostgreSQL DSN")
 	migrate := fs.Bool("automigrate", true, "Automatically perform up migrations on startup")
 	location := fs.String("time-location", "America/Los_Angeles", "Time Location (default: America/Los_Angeles)")
 	_ = fs.String("smtp-host", "", "Email smtp host")
@@ -147,7 +147,7 @@ func runApp(
 
 	// Get port from environment
 	if *port == "" {
-		*port = os.Getenv("PORT")
+		*port = getenv("PORT")
 	}
 	if *port == "" {
 		*port = "8000"
@@ -156,7 +156,7 @@ func runApp(
 	// Create a new logger
 	logLevel := &slog.LevelVar{}
 	logLevel.Set(slog.LevelInfo)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+	logger := slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
 
@@ -183,12 +183,12 @@ func runApp(
 	// Session manager configuration
 	sessionManager := scs.New()
 	sessionManager.Lifetime = 24 * time.Hour
-	if !*devMode || os.Getenv("DOKKU_APP_NAME") != "" {
+	if !*devMode || getenv("DOKKU_APP_TYPE") != "" {
 		sessionManager.Cookie.Secure = true
 	}
 
 	// Set up router
-	srv := newServer(logger, *devMode, mailer, *username, *passwordHash, &wg, sessionManager, queries)
+	srv := newServer(logger, *devMode, mailer, *authEmail, *authPasswordHash, &wg, sessionManager, queries)
 
 	// Configure an http server
 	httpServer := &http.Server{

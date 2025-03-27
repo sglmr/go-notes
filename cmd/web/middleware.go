@@ -114,7 +114,7 @@ func csrfMW(next http.Handler) http.Handler {
 	csrfHandler.SetBaseCookie(http.Cookie{
 		HttpOnly: true,
 		Path:     "/",
-		Secure:   os.Getenv("DOKKU_APP_NAME") != "",
+		Secure:   os.Getenv("DOKKU_APP_TYPE") != "",
 	})
 	return csrfHandler
 }

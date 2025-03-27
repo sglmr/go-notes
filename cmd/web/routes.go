@@ -15,7 +15,6 @@ import (
 	"github.com/sglmr/go-notes/assets"
 	"github.com/sglmr/go-notes/db"
 	"github.com/sglmr/go-notes/internal/argon2id"
-	"github.com/sglmr/go-notes/internal/email"
 	"github.com/sglmr/go-notes/internal/render"
 	"github.com/sglmr/go-notes/internal/validator"
 	"github.com/sglmr/go-notes/internal/vcs"
@@ -26,8 +25,7 @@ func addRoutes(
 	mux *http.ServeMux,
 	logger *slog.Logger,
 	devMode bool,
-	mailer email.MailerInterface,
-	email, passwordHash string,
+	authEmail, passwordHash string,
 	wg *sync.WaitGroup,
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
@@ -41,8 +39,8 @@ func addRoutes(
 	dynamic := func(next http.Handler) http.Handler {
 		return csrfMW(next)
 	}
-	mux.Handle("GET /login/", dynamic(login(logger, sessionManager, devMode, email, passwordHash)))
-	mux.Handle("POST /login/", dynamic(login(logger, sessionManager, devMode, email, passwordHash)))
+	mux.Handle("GET /login/", dynamic(login(logger, sessionManager, devMode, authEmail, passwordHash)))
+	mux.Handle("POST /login/", dynamic(login(logger, sessionManager, devMode, authEmail, passwordHash)))
 
 	// These routes are protected
 	protected := func(next http.Handler) http.Handler {
@@ -115,7 +113,7 @@ func login(
 	logger *slog.Logger,
 	sessionManager *scs.SessionManager,
 	showTrace bool,
-	email, passwordHash string,
+	authEmail, passwordHash string,
 ) http.HandlerFunc {
 	// Login form object
 	type loginForm struct {
@@ -180,7 +178,7 @@ func login(
 		}
 
 		// Check if there is a matching email
-		if email != form.Email {
+		if authEmail != form.Email {
 			Unauthorized(w, r, err)
 			return
 		}
@@ -218,12 +216,6 @@ func logout(
 	sessionManager *scs.SessionManager,
 	showTrace bool,
 ) http.HandlerFunc {
-	// Login form object
-	type loginForm struct {
-		Email    string
-		Password string
-		validator.Validator
-	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get the "next" url parameter for the page to redirect to on successful login
 		nextURL := r.URL.Query().Get("next")
