@@ -34,7 +34,7 @@ func TestLoginLogout(t *testing.T) {
 	// Try login
 	data := url.Values{}
 	data.Add("csrf_token", response.csrfToken(t))
-	data.Add("email", testUsername)
+	data.Add("email", testEmail)
 	data.Add("password", testPassword)
 
 	response = ts.post(t, "/login/", data)

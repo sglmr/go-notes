@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	testUsername     = "test@example.com"
+	testEmail        = "test@example.com"
 	testPassword     = "password"
 	testPasswordHash = `$argon2id$v=19$m=65536,t=1,p=8$j0Xx+SUxc9IkZxdAdjH8nQ$YSluZBv02f56eOEMEWZUjJumVi/Z4TB+jd31YiQvxBY`
 )
@@ -57,7 +57,7 @@ func newTestServer(t *testing.T) *testServer {
 	// Create a test mailer (io.Discard)
 	mailer := email.NewLogMailer(logger)
 
-	handler := newServer(logger, false, mailer, testUsername, testPasswordHash, &sync.WaitGroup{}, sessionManager, queries)
+	handler := newServer(logger, false, mailer, testEmail, testPasswordHash, &sync.WaitGroup{}, sessionManager, queries)
 
 	// Initialize a new test server
 	ts := httptest.NewTLSServer(handler)
@@ -184,7 +184,7 @@ func (ts *testServer) login(t *testing.T) {
 	// Set up the form data to post to the login page
 	data := url.Values{}
 	data.Add("csrf_token", response.csrfToken(t))
-	data.Add("email", testUsername)
+	data.Add("email", testEmail)
 	data.Add("password", testPassword)
 
 	// Post a login request
