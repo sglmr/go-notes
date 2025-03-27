@@ -80,8 +80,8 @@ func recoverPanicMW(next http.Handler, logger *slog.Logger, showTrace bool) http
 	})
 }
 
-// SecureHeadersMW sets security headers for the whole application
-func SecureHeadersMW(next http.Handler) http.Handler {
+// secureHeadersMW sets security headers for the whole application
+func secureHeadersMW(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Referrer-Policy", "origin-when-cross-origin")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -93,7 +93,7 @@ func SecureHeadersMW(next http.Handler) http.Handler {
 }
 
 // logRequestMW logs the http request
-func LogRequestMW(logger *slog.Logger) func(http.Handler) http.Handler {
+func logRequestMW(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var (
@@ -159,7 +159,7 @@ func basicAuthMW(username, passwordHash string, logger *slog.Logger) func(http.H
 }
 
 // requireLoginMW checks if a user is authenticated, and if not, redirects them to the login page.
-func requireLoginMW(sessionManager *scs.SessionManager) func(http.Handler) http.Handler {
+func requireLoginMW() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Redirect to login if the user isn't authenticated

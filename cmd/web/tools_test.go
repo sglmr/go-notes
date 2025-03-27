@@ -111,16 +111,11 @@ func (tr testResponse) csrfToken(t *testing.T) string {
 
 // get issues a GET request and returns a testResponse object
 //   - 'path' is the relative url path, like "/about/"
-func (ts *testServer) get(t *testing.T, path string, login bool) testResponse {
+func (ts *testServer) get(t *testing.T, path string) testResponse {
 	// Create a new http request
 	request, err := http.NewRequest(http.MethodGet, ts.URL+path, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if login {
-		// Add login if login requested
-		request.SetBasicAuth(testUsername, testPassword)
 	}
 
 	// Send Http Request
@@ -147,16 +142,13 @@ func (ts *testServer) get(t *testing.T, path string, login bool) testResponse {
 
 // post issues a POST request and returns a testResponse object
 //   - 'path' is the relative url path, like "/about/"
-func (ts *testServer) post(t *testing.T, path string, data url.Values, login bool) testResponse {
+func (ts *testServer) post(t *testing.T, path string, data url.Values) testResponse {
 	// Create a new http POST request.
 	request, err := http.NewRequest(http.MethodPost, ts.URL+path, strings.NewReader(data.Encode()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if login {
-		// Add login if login requested
-		request.SetBasicAuth(testUsername, testPassword)
-	}
+
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	// Send the POST request.
@@ -178,5 +170,45 @@ func (ts *testServer) post(t *testing.T, path string, data url.Values, login boo
 		statusCode: response.StatusCode,
 		header:     response.Header,
 		body:       string(body),
+	}
+}
+
+// login will log a user in for testing
+func (ts *testServer) login(t *testing.T) {
+	// Get the login page form to capture the csrf token
+	response := ts.get(t, "/login/")
+	if response.statusCode != http.StatusOK {
+		t.Fatal("could not get login page")
+	}
+
+	// Set up the form data to post to the login page
+	data := url.Values{}
+	data.Add("csrf_token", response.csrfToken(t))
+	data.Add("email", testUsername)
+	data.Add("password", testPassword)
+
+	// Post a login request
+	response = ts.post(t, "/login/", data)
+	if response.statusCode != http.StatusSeeOther {
+		t.Fatal("could not log in")
+	}
+}
+
+// logout will log a user out for testing
+func (ts *testServer) logout(t *testing.T) {
+	// Get the logout page form to capture the csrf token
+	response := ts.get(t, "/logout/")
+	if response.statusCode != http.StatusOK {
+		t.Fatal("could not get logout page")
+	}
+
+	// Set up the form data to post to the login page
+	data := url.Values{}
+	data.Add("csrf_token", response.csrfToken(t))
+
+	// Post a logout request
+	response = ts.post(t, "/logout/", data)
+	if response.statusCode != http.StatusSeeOther {
+		t.Fatal("could not log out")
 	}
 }

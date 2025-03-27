@@ -15,17 +15,58 @@ import (
 	"github.com/sglmr/go-notes/internal/vcs"
 )
 
+func TestLoginLogout(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+
+	// Test logout unauthorized without login
+	response := ts.get(t, "/logout/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+
+	// Test login without login
+	response = ts.get(t, "/login/")
+	assert.Equal(t, http.StatusOK, response.statusCode)
+	assert.StringIn(t, `<input type="hidden" name="csrf_token"`, response.body)
+	assert.StringIn(t, `<input type="text" id="email" name="email"`, response.body)
+	assert.StringIn(t, `<input type="password" id="password" name="password"`, response.body)
+	assert.StringNotIn(t, `/logout/`, response.body)
+
+	// Try login
+	data := url.Values{}
+	data.Add("csrf_token", response.csrfToken(t))
+	data.Add("email", testUsername)
+	data.Add("password", testPassword)
+
+	response = ts.post(t, "/login/", data)
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+
+	// Try logout get after login
+	response = ts.get(t, "/logout/")
+	assert.Equal(t, http.StatusOK, response.statusCode)
+
+	// Try posting logout to log out
+	data = url.Values{}
+	data.Add("csrf_token", response.csrfToken(t))
+	response = ts.post(t, "/logout/", data)
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+
+	// Logout get should redirect to login page now
+	response = ts.get(t, "/logout/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+}
+
 func TestHealth(t *testing.T) {
 	// Create a new test server
 	ts := newTestServer(t)
 	defer ts.Close()
 
-	// Test Unauthorized without login
-	response := ts.get(t, "/health/", false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	// Test ok without login
+	response := ts.get(t, "/health/")
+	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Test OK with login
-	response = ts.get(t, "/health/", true)
+	ts.login(t)
+	response = ts.get(t, "/health/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Check the response content type
@@ -35,7 +76,6 @@ func TestHealth(t *testing.T) {
 	assert.StringIn(t, "status: OK", response.body)
 	assert.StringIn(t, vcs.Version(), response.body)
 	assert.StringIn(t, "devMode: false", response.body)
-	assert.StringIn(t, "app name:", response.body)
 	assert.StringIn(t, "time location:  America/Los_Angeles", response.body)
 }
 
@@ -45,19 +85,20 @@ func TestListNotes(t *testing.T) {
 	defer ts.Close()
 
 	// Test unauthorized without login
-	response := ts.get(t, "/list/", false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response := ts.get(t, "/list/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test OK with login
-	response = ts.get(t, "/list/", true)
+	ts.login(t)
+	response = ts.get(t, "/list/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the search form fields
 	assert.StringIn(t, `<form method="GET"`, response.body)
 	assert.StringIn(t, `<input type="text" name="q" id="q" placeholder="Search notes..." value="">`, response.body)
 	assert.StringIn(t, `<select name="tag" id="tag" aria-label="Select a tag...">`, response.body)
-	assert.StringIn(t, `<input type="checkbox" id="favorites" name="favorites" />`, response.body)
-	assert.StringIn(t, `<input type="checkbox" id="archived" name="archived" />`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="favorites" name="favorites"`, response.body)
+	assert.StringIn(t, `<input type="checkbox" id="archived" name="archived"`, response.body)
 
 	// Has the title of a recent note
 	assert.StringIn(t, "Weekend Plans", response.body)
@@ -74,11 +115,12 @@ func TestDeleteNoteGet(t *testing.T) {
 	defer ts.Close()
 
 	// Test unauthorized without login
-	response := ts.get(t, "/note/n_001/delete/", false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response := ts.get(t, "/note/n_001/delete/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test OK with login
-	response = ts.get(t, "/note/n_001/delete/", true)
+	ts.login(t)
+	response = ts.get(t, "/note/n_001/delete/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the form fields
@@ -95,30 +137,34 @@ func TestDeleteNotePost(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
 
+	// Test redirect to login
+	response := ts.post(t, "/note/n_001/delete/", url.Values{})
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+	assert.StringIn(t, "/login/?next=", response.header.Get("Location"))
+
 	// Validate the post exists
-	response := ts.get(t, "/note/n_001/", true)
+	ts.login(t)
+	response = ts.get(t, "/note/n_001/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
-	// Test unauthorized without login
-	response = ts.post(t, "/note/n_001/delete/", url.Values{}, false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	// Get a CSRF Token then post a delete
+	response = ts.get(t, "/note/n_001/delete/")
+	assert.Equal(t, http.StatusOK, response.statusCode)
+	token := response.csrfToken(t)
 
 	// Test delete requires csrf_token
-	response = ts.post(t, "/notes/n_001/delete/", url.Values{}, true)
+	data := url.Values{}
+	response = ts.post(t, "/note/n_001/delete/", data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
-	// Get a CSRF Token then post a delete
-	response = ts.get(t, "/note/n_001/delete/", true)
-	data := url.Values{}
-	data.Add("csrf_token", response.csrfToken(t))
-
 	// Post a response with the csrf token
-	response = ts.post(t, "/note/n_001/delete/", data, true)
+	data.Add("csrf_token", token)
+	response = ts.post(t, "/note/n_001/delete/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 	assert.Equal(t, "/list/", response.header.Get("Location"))
 
 	// Validate the post doesn't exist anymore
-	response = ts.get(t, "/note/n_001/", true)
+	response = ts.get(t, "/note/n_001/")
 	assert.Equal(t, http.StatusNotFound, response.statusCode)
 }
 
@@ -126,9 +172,14 @@ func TestHome(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
 
-	response := ts.get(t, "/", true)
+	// Try getting the page without login
+	response := ts.get(t, "/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
-	assert.Equal(t, response.statusCode, http.StatusOK)
+	// Try again with login
+	ts.login(t)
+	response = ts.get(t, "/")
+	assert.Equal(t, http.StatusOK, response.statusCode)
 	assert.StringIn(t, "Example", response.body)
 }
 
@@ -138,11 +189,12 @@ func TestNewNoteGET(t *testing.T) {
 	defer ts.Close()
 
 	// Test unauthorized without login
-	response := ts.get(t, "/new/", false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response := ts.get(t, "/new/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test OK with login
-	response = ts.get(t, "/new/", true)
+	ts.login(t)
+	response = ts.get(t, "/new/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the form fields
@@ -167,15 +219,16 @@ func TestNewNotePOST(t *testing.T) {
 	data := url.Values{}
 
 	// Test unauthorized without login
-	response := ts.post(t, "/new/", data, false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response := ts.post(t, "/new/", data)
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test bad request with login
-	response = ts.post(t, "/new/", data, true)
+	ts.login(t)
+	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Get a CSRF token for testing
-	response = ts.get(t, "/new/", true)
+	response = ts.get(t, "/new/")
 	csrfToken := response.csrfToken(t)
 
 	// Try a full request without the csrf token
@@ -186,12 +239,12 @@ func TestNewNotePOST(t *testing.T) {
 	data.Add("note", `just #testing with #fishing and not [link](#link) or href="#that"`)
 
 	// Post should fail without a csrf token
-	response = ts.post(t, "/new/", data, true)
+	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Post should succeed with a csrf token
 	data.Add("csrf_token", csrfToken)
-	response = ts.post(t, "/new/", data, true)
+	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Check the reditect location
@@ -219,14 +272,14 @@ func TestNewNotePOST(t *testing.T) {
 
 	// Try another new post without the created_at, it should fail
 	data.Del("created_at")
-	response = ts.post(t, "/new/", data, true)
+	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Try another without any note content, it should fail
 	data.Add("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
 	data.Del("note")
 
-	response = ts.post(t, "/new/", data, true)
+	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Try a new note with more minimal data
@@ -236,7 +289,7 @@ func TestNewNotePOST(t *testing.T) {
 	data.Del("archive")
 
 	// Should be okay
-	response = ts.post(t, "/new/", data, true)
+	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Check the reditect location
@@ -270,11 +323,12 @@ func TestEditNoteGET(t *testing.T) {
 	defer ts.Close()
 
 	// Test unauthorized without login
-	response := ts.get(t, "/note/n_002/edit/", false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response := ts.get(t, "/note/n_002/edit/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test OK with login
-	response = ts.get(t, "/note/n_002/edit/", true)
+	ts.login(t)
+	response = ts.get(t, "/note/n_002/edit/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the form fields
@@ -313,15 +367,16 @@ func TestEditNotePOST(t *testing.T) {
 	url := fmt.Sprintf("/note/%s/edit/", note.ID)
 
 	// Test unauthorized without login
-	response := ts.post(t, url, data, false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response := ts.post(t, url, data)
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test bad request with login
-	response = ts.post(t, url, data, true)
+	ts.login(t)
+	response = ts.post(t, url, data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Get a CSRF token for testing
-	response = ts.get(t, "/new/", true)
+	response = ts.get(t, "/new/")
 	csrfToken := response.csrfToken(t)
 
 	// Try a full request without the csrf token
@@ -342,14 +397,14 @@ func TestEditNotePOST(t *testing.T) {
 	data.Add("note", "It's not the same anymore")
 
 	// Test bad request with csrf token
-	response = ts.post(t, url, data, true)
+	response = ts.post(t, url, data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Add the csrf token and try again
 	data.Add("csrf_token", csrfToken)
 
 	// Test request OK with csrf token
-	response = ts.post(t, url, data, true)
+	response = ts.post(t, url, data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 	assert.Equal(t, fmt.Sprintf("/note/%s/", note.ID), response.header.Get("Location"))
 
@@ -375,11 +430,12 @@ func TestTimeLocationGET(t *testing.T) {
 	defer ts.Close()
 
 	// Test unauthorized without login
-	response := ts.get(t, "/time/", false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response := ts.get(t, "/time/")
+	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test OK with login
-	response = ts.get(t, "/time/", true)
+	ts.login(t)
+	response = ts.get(t, "/time/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 	assert.StringIn(t, "America/Los_Angeles", response.body)
 	assert.Equal(t, "America/Los_Angeles", timeLocation.String())
@@ -391,20 +447,20 @@ func TestTimeLocationGET(t *testing.T) {
 	csrfToken := response.csrfToken(t)
 
 	// Try to update the location. Should fail without login
-	response = ts.post(t, "/time/", data, false)
-	assert.Equal(t, http.StatusUnauthorized, response.statusCode)
+	response = ts.post(t, "/time/", data)
+	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Try to update the location. Should fail without csrf
-	response = ts.post(t, "/time/", data, true)
+	response = ts.post(t, "/time/", data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Update the timezone
 	data.Add("csrf_token", csrfToken)
-	response = ts.post(t, "/time/", data, true)
+	response = ts.post(t, "/time/", data)
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Get the time page again to check the update data
-	response = ts.get(t, "/time/", true)
+	response = ts.get(t, "/time/")
 	assert.StringIn(t, "America/New_York", response.body)
 	assert.StringNotIn(t, "America/Los_Angeles", response.body)
 	assert.Equal(t, "America/New_York", timeLocation.String())
@@ -413,11 +469,11 @@ func TestTimeLocationGET(t *testing.T) {
 	data.Del("time_location")
 	data.Add("time_location", "America/NOOOOOOO")
 
-	response = ts.post(t, "/time/", data, true)
+	response = ts.post(t, "/time/", data)
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Get the time page again to the data didn't change
-	response = ts.get(t, "/time/", true)
+	response = ts.get(t, "/time/")
 	assert.StringIn(t, "America/New_York", response.body)
 	assert.StringNotIn(t, "America/Los_Angeles", response.body)
 	assert.Equal(t, "America/New_York", timeLocation.String())

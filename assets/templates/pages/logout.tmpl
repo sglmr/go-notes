@@ -1,0 +1,11 @@
+{{define "page:title"}}Log Out{{end}}
+
+{{define "page:main"}}
+<h1>Log Out</h1>
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <p><strong>Are you sure you want to log out?</strong></p>
+    <input type="submit" value="Log Out">
+</form>
+
+{{end}}

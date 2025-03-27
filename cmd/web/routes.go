@@ -35,14 +35,19 @@ func addRoutes(
 	// Set up file server for embedded static files
 	fileServer := http.FileServer(http.FS(staticFileSystem{assets.EmbeddedFiles}))
 	mux.Handle("GET /static/", cacheControlMW("31536000")(fileServer))
-
-	// These routes are not protected
-	mux.Handle("GET /login/", login(logger, sessionManager, devMode, email, passwordHash))
-	mux.Handle("POST /login/", login(logger, sessionManager, devMode, email, passwordHash))
 	mux.Handle("GET /health/", health(devMode))
 
+	// These routes are not protected
+	dynamic := func(next http.Handler) http.Handler {
+		return csrfMW(next)
+	}
+	mux.Handle("GET /login/", dynamic(login(logger, sessionManager, devMode, email, passwordHash)))
+	mux.Handle("POST /login/", dynamic(login(logger, sessionManager, devMode, email, passwordHash)))
+
 	// These routes are protected
-	protected := requireLoginMW(sessionManager)
+	protected := func(next http.Handler) http.Handler {
+		return requireLoginMW()(dynamic(next))
+	}
 	mux.Handle("GET /", protected(home(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /list/", protected(listNotes(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /search/", protected(listNotes(logger, devMode, sessionManager, queries)))
@@ -57,6 +62,8 @@ func addRoutes(
 	mux.Handle("POST /time/", protected(timeZone(logger, devMode, sessionManager)))
 	mux.Handle("GET /import/", protected(importNote(queries)))
 	mux.Handle("POST /import/", protected(importNote(queries)))
+	mux.Handle("GET /logout/", protected(logout(logger, sessionManager, devMode)))
+	mux.Handle("POST /logout/", protected(logout(logger, sessionManager, devMode)))
 }
 
 // health handles a healthcheck response "OK"
@@ -104,7 +111,12 @@ func home(
 }
 
 // login handles logins
-func login(logger *slog.Logger, sessionManager *scs.SessionManager, showTrace bool, email, passwordHash string) http.HandlerFunc {
+func login(
+	logger *slog.Logger,
+	sessionManager *scs.SessionManager,
+	showTrace bool,
+	email, passwordHash string,
+) http.HandlerFunc {
 	// Login form object
 	type loginForm struct {
 		Email    string
@@ -197,6 +209,55 @@ func login(logger *slog.Logger, sessionManager *scs.SessionManager, showTrace bo
 
 		// Redirect to the next page.
 		http.Redirect(w, r, nextURL, http.StatusSeeOther)
+	}
+}
+
+// logout handles logging out
+func logout(
+	logger *slog.Logger,
+	sessionManager *scs.SessionManager,
+	showTrace bool,
+) http.HandlerFunc {
+	// Login form object
+	type loginForm struct {
+		Email    string
+		Password string
+		validator.Validator
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the "next" url parameter for the page to redirect to on successful login
+		nextURL := r.URL.Query().Get("next")
+		logger.Debug("login next", "next", nextURL)
+		if len(nextURL) == 0 {
+			// Set to home if there was not next url
+			nextURL = "/"
+		}
+
+		// Render form for a GET request
+		if r.Method == http.MethodGet {
+			data := newTemplateData(r, sessionManager)
+
+			// Render the login page
+			if err := render.Page(w, http.StatusOK, data, "logout.tmpl"); err != nil {
+				serverError(w, r, err, logger, showTrace)
+				return
+			}
+			return
+		}
+
+		// Renew token after login to change the session ID
+		err := sessionManager.RenewToken(r.Context())
+		if err != nil {
+			serverError(w, r, err, logger, showTrace)
+			return
+		}
+
+		// Remove the authenticated session key
+		sessionManager.Remove(r.Context(), "authenticated")
+		putFlashMessage(r, LevelSuccess, "You've been logged out!", sessionManager)
+
+		// Redirect to the next page.
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
 
@@ -345,6 +406,7 @@ func deleteNote(
 				serverError(w, r, err, logger, showTrace)
 				return
 			}
+			return
 		case http.MethodPost:
 			err := queries.DeleteNote(r.Context(), id)
 			if err != nil {
@@ -352,6 +414,7 @@ func deleteNote(
 			}
 
 			http.Redirect(w, r, "/list/", http.StatusSeeOther)
+			return
 
 		default:
 			NotFound(w, r)

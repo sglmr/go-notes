@@ -30,7 +30,7 @@ func TestSecureHeadersMW(t *testing.T) {
 
 	// Pass the mock HTTP handler to the SecureHeadersMW middleware.
 	// Call ServeHTTP to execute it.
-	SecureHeadersMW(next).ServeHTTP(rr, r)
+	secureHeadersMW(next).ServeHTTP(rr, r)
 
 	// Get the results of the test
 	rs := rr.Result()

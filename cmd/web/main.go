@@ -67,13 +67,11 @@ func newServer(
 	// Add middleare chain for all the routes
 	var handler http.Handler = mux
 	handler = recoverPanicMW(mux, logger, devMode)
-	handler = SecureHeadersMW(handler)
-	handler = csrfMW(handler)
+	handler = secureHeadersMW(handler)
 	handler = authenticateMW(sessionManager)(handler)
-
-	// Always apply session middlewaare last in the chain (first to execute)
+	// Always apply session middleware last in the chain (first to execute)
 	handler = sessionManager.LoadAndSave(handler)
-	handler = LogRequestMW(logger)(handler)
+	handler = logRequestMW(logger)(handler)
 
 	// Return everything
 	return handler

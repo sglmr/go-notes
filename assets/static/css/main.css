@@ -14,8 +14,7 @@
     --color-gray-800: oklch(0.278 0.033 256.848);
     --color-white: #fff;
     --spacing: 0.25rem;
-    --container-xl: 36rem;
-    --container-2xl: 42rem;
+    --container-3xl: 48rem;
     --text-sm: 0.875rem;
     --text-sm--line-height: calc(1.25 / 0.875);
     --text-base: 1rem;
@@ -662,11 +661,8 @@
   .table {
     display: table;
   }
-  .max-w-2xl {
-    max-width: var(--container-2xl);
-  }
-  .max-w-xl {
-    max-width: var(--container-xl);
+  .max-w-3xl {
+    max-width: var(--container-3xl);
   }
   .resize {
     resize: both;
