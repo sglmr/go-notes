@@ -38,9 +38,6 @@ func TestLoginLogout(t *testing.T) {
 	data.Set("password", testPassword)
 	response = ts.post(t, "/login/", data)
 	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
-
-	// Check flash message on next page
-	response = ts.get(t, "/login/")
 	assert.StringIn(t, "Email or password is incorrect", response.body)
 	assert.StringNotIn(t, "You are in!", response.body)
 
@@ -49,9 +46,6 @@ func TestLoginLogout(t *testing.T) {
 	data.Set("password", "wrong-password")
 	response = ts.post(t, "/login/", data)
 	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
-
-	// Check flash message on next page
-	response = ts.get(t, "/login/")
 	assert.StringIn(t, "Email or password is incorrect", response.body)
 	assert.StringNotIn(t, "You are in!", response.body)
 
