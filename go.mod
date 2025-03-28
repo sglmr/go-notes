@@ -4,6 +4,7 @@ go 1.23.7
 
 require (
 	github.com/alecthomas/chroma/v2 v2.15.0
+	github.com/alexedwards/scs/pgxstore v0.0.0-20250212122300-421ef1d8611c
 	github.com/alexedwards/scs/v2 v2.8.0
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/google/uuid v1.6.0

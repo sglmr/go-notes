@@ -22,6 +22,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/alexedwards/scs/pgxstore"
 	"github.com/alexedwards/scs/v2"
 	"github.com/sglmr/go-notes/internal/email"
 )
@@ -182,7 +183,8 @@ func runApp(
 
 	// Session manager configuration
 	sessionManager := scs.New()
-	sessionManager.Lifetime = 24 * time.Hour
+	sessionManager.Store = pgxstore.New(dbpool)
+	sessionManager.Lifetime = 24 * time.Hour * 7
 	if !*devMode || getenv("DOKKU_APP_TYPE") != "" {
 		sessionManager.Cookie.Secure = true
 	}
