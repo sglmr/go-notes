@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -86,7 +87,7 @@ func home(
 		// Redirect non-root paths to root
 		// TODO: write a test for this someday
 		if r.URL.Path != "/" {
-			NotFound(w, r)
+			clientError(w, http.StatusNotFound)
 			return
 		}
 
@@ -146,7 +147,7 @@ func login(
 		// Parse the form data
 		err := r.ParseForm()
 		if err != nil {
-			BadRequest(w, r, fmt.Errorf("parse post data: %w", err))
+			clientError(w, http.StatusBadRequest)
 			return
 		}
 
@@ -165,21 +166,30 @@ func login(
 
 		// Return form errors if the form is not valid
 		if form.HasErrors() {
-			putFlashMessage(r, LevelError, "please correct the form errors", sessionManager)
+			putFlashMessage(r, flashError, "please correct the form errors", sessionManager)
 			data := newTemplateData(r, sessionManager)
 			data["Form"] = form
 
 			// Render the login page
-			if err := render.Page(w, http.StatusOK, data, "login.tmpl"); err != nil {
+			if err := render.Page(w, http.StatusUnprocessableEntity, data, "login.tmpl"); err != nil {
 				serverError(w, r, err, logger, showTrace)
 				return
 			}
 			return
 		}
 
-		// Check if there is a matching email
-		if authEmail != form.Email {
-			Unauthorized(w, r, err)
+		// Check if the email matches and if not, send back to the login page
+		if subtle.ConstantTimeCompare([]byte(authEmail), []byte(form.Email)) == 0 {
+			putFlashMessage(r, flashError, "Email or password is incorrect", sessionManager)
+
+			data := newTemplateData(r, sessionManager)
+			data["Form"] = form
+
+			// re-render the login page
+			if err := render.Page(w, http.StatusUnprocessableEntity, data, "login.tmpl"); err != nil {
+				serverError(w, r, err, logger, showTrace)
+				return
+			}
 			return
 		}
 
@@ -190,7 +200,16 @@ func login(
 			serverError(w, r, err, logger, showTrace)
 			return
 		case !match:
-			Unauthorized(w, r, err)
+			putFlashMessage(r, flashError, "Email or password is incorrect", sessionManager)
+
+			data := newTemplateData(r, sessionManager)
+			data["Form"] = form
+
+			// re-render the login page
+			if err := render.Page(w, http.StatusUnprocessableEntity, data, "login.tmpl"); err != nil {
+				serverError(w, r, err, logger, showTrace)
+				return
+			}
 			return
 		}
 
@@ -203,7 +222,7 @@ func login(
 
 		// Set the authenticated session key
 		sessionManager.Put(r.Context(), "authenticated", true)
-		putFlashMessage(r, LevelSuccess, "You are in!", sessionManager)
+		putFlashMessage(r, flashSuccess, "You are in!", sessionManager)
 
 		// Redirect to the next page.
 		http.Redirect(w, r, nextURL, http.StatusSeeOther)
@@ -246,7 +265,7 @@ func logout(
 
 		// Remove the authenticated session key
 		sessionManager.Remove(r.Context(), "authenticated")
-		putFlashMessage(r, LevelSuccess, "You've been logged out!", sessionManager)
+		putFlashMessage(r, flashSuccess, "You've been logged out!", sessionManager)
 
 		// Redirect to the next page.
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -304,7 +323,7 @@ func listNotes(
 			}
 			notes = n
 		default:
-			NotFound(w, r)
+			clientError(w, http.StatusNotFound)
 			return
 		}
 
@@ -348,7 +367,7 @@ func viewNote(
 		// Query for a single note
 		note, err := queries.GetNote(r.Context(), id)
 		if errors.Is(err, pgx.ErrNoRows) {
-			NotFound(w, r)
+			clientError(w, http.StatusNotFound)
 			return
 		} else if err != nil {
 			serverError(w, r, err, logger, showTrace)
@@ -380,7 +399,7 @@ func deleteNote(
 		// Query for a single note
 		note, err := queries.GetNote(r.Context(), id)
 		if errors.Is(err, pgx.ErrNoRows) {
-			NotFound(w, r)
+			clientError(w, http.StatusNotFound)
 			return
 		} else if err != nil {
 			serverError(w, r, err, logger, showTrace)
@@ -409,7 +428,7 @@ func deleteNote(
 			return
 
 		default:
-			NotFound(w, r)
+			clientError(w, http.StatusNotFound)
 			return
 		}
 	}
@@ -447,7 +466,7 @@ func noteFormGet(
 		if id != "" {
 			note, err := queries.GetNote(r.Context(), id)
 			if errors.Is(err, pgx.ErrNoRows) {
-				NotFound(w, r)
+				clientError(w, http.StatusNotFound)
 				return
 			} else if err != nil {
 				serverError(w, r, err, logger, showTrace)
@@ -494,23 +513,26 @@ func importNote(
 		// Return Bad Request if the form data is not parseable
 		err := r.ParseForm()
 		if err != nil {
-			BadRequest(w, r, fmt.Errorf("parse import post data: %w", err))
+			clientError(w, http.StatusBadRequest)
 			return
 		}
 
 		noteID := r.FormValue("note_id")
 		if noteID == "" {
-			BadRequest(w, r, errors.New("missing note_id"))
+			fmt.Fprintln(w, "missing note_id")
+			clientError(w, http.StatusUnprocessableEntity)
 			return
 		}
 		title := r.FormValue("title")
 		if title == "" {
-			BadRequest(w, r, errors.New("missing title"))
+			fmt.Fprintln(w, "missing title")
+			clientError(w, http.StatusUnprocessableEntity)
 			return
 		}
 		note := r.FormValue("note")
 		if note == "" {
-			BadRequest(w, r, errors.New("missing note content"))
+			fmt.Fprintln(w, "missing note")
+			clientError(w, http.StatusUnprocessableEntity)
 			return
 		}
 		archive := len(r.FormValue("archive")) > 0
@@ -518,14 +540,16 @@ func importNote(
 
 		// Convert the value to time.Time
 		createdAt, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("created_at"), timeLocation)
-		if err != nil {
-			BadRequest(w, r, err)
+		if err != nil || createdAt.IsZero() {
+			fmt.Fprintln(w, "missing or invalid created_at")
+			clientError(w, http.StatusUnprocessableEntity)
 			return
 		}
 		// Convert the value to time.Time
 		modifiedAt, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("modified_at"), timeLocation)
-		if err != nil {
-			BadRequest(w, r, err)
+		if err != nil || modifiedAt.IsZero() {
+			fmt.Fprintln(w, "missing or invalid modified_at")
+			clientError(w, http.StatusUnprocessableEntity)
 			return
 		}
 
@@ -573,7 +597,7 @@ func noteFormPOST(
 
 		// Return Bad Request if the form data is not parseable
 		if err = r.ParseForm(); err != nil {
-			BadRequest(w, r, err)
+			clientError(w, http.StatusBadRequest)
 			return
 		}
 
@@ -587,7 +611,7 @@ func noteFormPOST(
 			// Query for a single note if there is an id
 			_, err := queries.GetNote(r.Context(), id)
 			if errors.Is(err, pgx.ErrNoRows) {
-				NotFound(w, r)
+				clientError(w, http.StatusNotFound)
 				return
 			} else if err != nil {
 				serverError(w, r, err, logger, showTrace)
@@ -626,7 +650,7 @@ func noteFormPOST(
 		// Return the form data and re-render the form page if there are any errors
 		if form.HasErrors() {
 			data["Form"] = form
-			if err := render.Page(w, http.StatusBadRequest, data, "noteForm.tmpl"); err != nil {
+			if err := render.Page(w, http.StatusUnprocessableEntity, data, "noteForm.tmpl"); err != nil {
 				serverError(w, r, err, logger, showTrace)
 				return
 			}
@@ -693,7 +717,7 @@ func timeZone(logger *slog.Logger, showTrace bool, sessionManager *scs.SessionMa
 		if r.Method == http.MethodPost {
 			// Parse the form, bad request if there is an error
 			if err := r.ParseForm(); err != nil {
-				BadRequest(w, r, err)
+				clientError(w, http.StatusBadRequest)
 				return
 			}
 
@@ -704,7 +728,7 @@ func timeZone(logger *slog.Logger, showTrace bool, sessionManager *scs.SessionMa
 			// Load the time location
 			timeLocation, err = time.LoadLocation(newLocation)
 			if err != nil {
-				putFlashMessage(r, LevelError, err.Error(), sessionManager)
+				putFlashMessage(r, flashError, err.Error(), sessionManager)
 				// reload the previous location
 				timeLocation, _ = time.LoadLocation(currentLocation)
 			}

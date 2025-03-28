@@ -52,22 +52,9 @@ func serverError(w http.ResponseWriter, r *http.Request, err error, logger *slog
 	http.Error(w, message, http.StatusInternalServerError)
 }
 
-// NotFound handles not found http responses.
-func NotFound(w http.ResponseWriter, r *http.Request) {
-	message := "The requested resource could not be found"
-	http.Error(w, message, http.StatusNotFound)
-}
-
-// BadRequest hadles bad request http responses.
-func BadRequest(w http.ResponseWriter, r *http.Request, err error) {
-	body := fmt.Sprint(http.StatusText(http.StatusBadRequest), ": ", err.Error())
-	http.Error(w, body, http.StatusBadRequest)
-}
-
-// Unauthorized hadles unauthorized http responses.
-func Unauthorized(w http.ResponseWriter, r *http.Request, err error) {
-	body := fmt.Sprint(http.StatusText(http.StatusUnauthorized), ": ", err.Error())
-	http.Error(w, body, http.StatusUnauthorized)
+// clientError returns a user/client error response
+func clientError(w http.ResponseWriter, status int) {
+	http.Error(w, http.StatusText(status), status)
 }
 
 //=============================================================================
@@ -128,38 +115,38 @@ func extractTags(text string) []string {
 // Flash Message functions
 //=============================================================================
 
-const flashMessageKey = "messages"
+const flashKey = "messages"
 
-type FlashMessageLevel string
+type flashLevel string
 
 const (
-	// Different FlashMessageLevel types
-	LevelSuccess FlashMessageLevel = "success"
-	LevelError   FlashMessageLevel = "error"
-	LevelWarning FlashMessageLevel = "warning"
-	LevelInfo    FlashMessageLevel = "info"
+	// Different flashLevel types
+	flashInfo    flashLevel = "info"
+	flashSuccess flashLevel = "success"
+	flashWarning flashLevel = "warning"
+	flashError   flashLevel = "error"
 )
 
 type FlashMessage struct {
-	Level   FlashMessageLevel
+	Level   flashLevel
 	Message string
 }
 
 // putFlashMessage adds a flash message into the session manager
-func putFlashMessage(r *http.Request, level FlashMessageLevel, message string, sessionManager *scs.SessionManager) {
+func putFlashMessage(r *http.Request, level flashLevel, message string, sessionManager *scs.SessionManager) {
 	newMessage := FlashMessage{
 		Level:   level,
 		Message: message,
 	}
 
-	// Create a new flashMessageKey context key if one doesn't exist and add the message
-	messages, ok := sessionManager.Get(r.Context(), flashMessageKey).([]FlashMessage)
+	// Create a new flashKey context key if one doesn't exist and add the message
+	messages, ok := sessionManager.Get(r.Context(), flashKey).([]FlashMessage)
 	if !ok {
-		sessionManager.Put(r.Context(), flashMessageKey, []FlashMessage{newMessage})
+		sessionManager.Put(r.Context(), flashKey, []FlashMessage{newMessage})
 		return
 	}
 
-	// Add a flash message to an existing flashMessageKey context key
+	// Add a flash message to an existing flashKey context key
 	messages = append(messages, newMessage)
-	sessionManager.Put(r.Context(), flashMessageKey, messages)
+	sessionManager.Put(r.Context(), flashKey, messages)
 }

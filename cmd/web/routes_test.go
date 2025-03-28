@@ -31,14 +31,40 @@ func TestLoginLogout(t *testing.T) {
 	assert.StringIn(t, `<input type="password" id="password" name="password"`, response.body)
 	assert.StringNotIn(t, `/logout/`, response.body)
 
-	// Try login
+	// Try login with fake username
 	data := url.Values{}
-	data.Add("csrf_token", response.csrfToken(t))
-	data.Add("email", testEmail)
-	data.Add("password", testPassword)
+	data.Set("csrf_token", response.csrfToken(t))
+	data.Set("email", "fake@example.com")
+	data.Set("password", testPassword)
+	response = ts.post(t, "/login/", data)
+	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
 
+	// Check flash message on next page
+	response = ts.get(t, "/login/")
+	assert.StringIn(t, "Email or password is incorrect", response.body)
+	assert.StringNotIn(t, "You are in!", response.body)
+
+	// Try login with a fake password
+	data.Set("email", testEmail)
+	data.Set("password", "wrong-password")
+	response = ts.post(t, "/login/", data)
+	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
+
+	// Check flash message on next page
+	response = ts.get(t, "/login/")
+	assert.StringIn(t, "Email or password is incorrect", response.body)
+	assert.StringNotIn(t, "You are in!", response.body)
+
+	// Try login with real password and email
+	data.Set("email", testEmail)
+	data.Set("password", testPassword)
 	response = ts.post(t, "/login/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
+
+	// Check flash message on next page
+	response = ts.get(t, "/")
+	assert.StringIn(t, "You are in!", response.body)
+	assert.StringNotIn(t, "Email or password is incorrect", response.body)
 
 	// Try logout get after login
 	response = ts.get(t, "/logout/")
@@ -46,7 +72,7 @@ func TestLoginLogout(t *testing.T) {
 
 	// Try posting logout to log out
 	data = url.Values{}
-	data.Add("csrf_token", response.csrfToken(t))
+	data.Set("csrf_token", response.csrfToken(t))
 	response = ts.post(t, "/logout/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
@@ -158,7 +184,7 @@ func TestDeleteNotePost(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Post a response with the csrf token
-	data.Add("csrf_token", token)
+	data.Set("csrf_token", token)
 	response = ts.post(t, "/note/n_001/delete/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 	assert.Equal(t, "/list/", response.header.Get("Location"))
@@ -232,18 +258,18 @@ func TestNewNotePOST(t *testing.T) {
 	csrfToken := response.csrfToken(t)
 
 	// Try a full request without the csrf token
-	data.Add("title", "A Shiny New Post")
-	data.Add("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
-	data.Add("favorite", "on")
-	data.Add("archive", "on")
-	data.Add("note", `just #testing with #fishing and not [link](#link) or href="#that"`)
+	data.Set("title", "A Shiny New Post")
+	data.Set("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
+	data.Set("favorite", "on")
+	data.Set("archive", "on")
+	data.Set("note", `just #testing with #fishing and not [link](#link) or href="#that"`)
 
 	// Post should fail without a csrf token
 	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Post should succeed with a csrf token
-	data.Add("csrf_token", csrfToken)
+	data.Set("csrf_token", csrfToken)
 	response = ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
@@ -276,7 +302,7 @@ func TestNewNotePOST(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Try another without any note content, it should fail
-	data.Add("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
+	data.Set("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
 	data.Del("note")
 
 	response = ts.post(t, "/new/", data)
@@ -284,7 +310,7 @@ func TestNewNotePOST(t *testing.T) {
 
 	// Try a new note with more minimal data
 	data.Del("title")
-	data.Add("note", "This note is out of control\n\nor not")
+	data.Set("note", "This note is out of control\n\nor not")
 	data.Del("favorite")
 	data.Del("archive")
 
@@ -380,28 +406,28 @@ func TestEditNotePOST(t *testing.T) {
 	csrfToken := response.csrfToken(t)
 
 	// Try a full request without the csrf token
-	data.Add("title", "It's different now")
-	data.Add("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
+	data.Set("title", "It's different now")
+	data.Set("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
 	switch note.Favorite {
 	case true:
-		data.Add("favorite", "")
+		data.Set("favorite", "")
 	default:
-		data.Add("favorite", "true")
+		data.Set("favorite", "true")
 	}
 	switch note.Archive {
 	case true:
-		data.Add("archive", "")
+		data.Set("archive", "")
 	default:
-		data.Add("archive", "true")
+		data.Set("archive", "true")
 	}
-	data.Add("note", "It's not the same anymore")
+	data.Set("note", "It's not the same anymore")
 
 	// Test bad request with csrf token
 	response = ts.post(t, url, data)
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Add the csrf token and try again
-	data.Add("csrf_token", csrfToken)
+	data.Set("csrf_token", csrfToken)
 
 	// Test request OK with csrf token
 	response = ts.post(t, url, data)
@@ -442,7 +468,7 @@ func TestTimeLocationGET(t *testing.T) {
 
 	// Make up some data to change the time location
 	data := url.Values{}
-	data.Add("time_location", "America/New_York")
+	data.Set("time_location", "America/New_York")
 
 	csrfToken := response.csrfToken(t)
 
@@ -455,7 +481,7 @@ func TestTimeLocationGET(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, response.statusCode)
 
 	// Update the timezone
-	data.Add("csrf_token", csrfToken)
+	data.Set("csrf_token", csrfToken)
 	response = ts.post(t, "/time/", data)
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
@@ -467,7 +493,7 @@ func TestTimeLocationGET(t *testing.T) {
 
 	// change the timezone to an invalid timezone
 	data.Del("time_location")
-	data.Add("time_location", "America/NOOOOOOO")
+	data.Set("time_location", "America/NOOOOOOO")
 
 	response = ts.post(t, "/time/", data)
 	assert.Equal(t, http.StatusOK, response.statusCode)
