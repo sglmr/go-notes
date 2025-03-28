@@ -183,9 +183,9 @@ func (ts *testServer) login(t *testing.T) {
 
 	// Set up the form data to post to the login page
 	data := url.Values{}
-	data.Add("csrf_token", response.csrfToken(t))
-	data.Add("email", testEmail)
-	data.Add("password", testPassword)
+	data.Set("csrf_token", response.csrfToken(t))
+	data.Set("email", testEmail)
+	data.Set("password", testPassword)
 
 	// Post a login request
 	response = ts.post(t, "/login/", data)
@@ -204,7 +204,7 @@ func (ts *testServer) logout(t *testing.T) {
 
 	// Set up the form data to post to the login page
 	data := url.Values{}
-	data.Add("csrf_token", response.csrfToken(t))
+	data.Set("csrf_token", response.csrfToken(t))
 
 	// Post a logout request
 	response = ts.post(t, "/logout/", data)

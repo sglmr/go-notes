@@ -63,8 +63,9 @@ func NamedTemplateWithHeaders(w http.ResponseWriter, status int, data any, heade
 
 	// Set the HTTP status code
 	w.WriteHeader(status)
-	buf.WriteTo(w)
 
 	// Write the rendered template to the HTTP response
+	buf.WriteTo(w)
+
 	return nil
 }

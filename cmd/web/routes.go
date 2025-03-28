@@ -601,9 +601,6 @@ func noteFormPOST(
 			return
 		}
 
-		// Create a new template data for a future response
-		data := newTemplateData(r, sessionManager)
-
 		// Check if there is an id value in the url path
 		id := r.PathValue("id")
 
@@ -649,11 +646,14 @@ func noteFormPOST(
 
 		// Return the form data and re-render the form page if there are any errors
 		if form.HasErrors() {
+			// Create a new template data for a future response
+			data := newTemplateData(r, sessionManager)
 			data["Form"] = form
 			if err := render.Page(w, http.StatusUnprocessableEntity, data, "noteForm.tmpl"); err != nil {
 				serverError(w, r, err, logger, showTrace)
 				return
 			}
+			return
 		}
 
 		switch {

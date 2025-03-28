@@ -299,14 +299,14 @@ func TestNewNotePOST(t *testing.T) {
 	// Try another new post without the created_at, it should fail
 	data.Del("created_at")
 	response = ts.post(t, "/new/", data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
 
 	// Try another without any note content, it should fail
 	data.Set("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
 	data.Del("note")
 
 	response = ts.post(t, "/new/", data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
 
 	// Try a new note with more minimal data
 	data.Del("title")
