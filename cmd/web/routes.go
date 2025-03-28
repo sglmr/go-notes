@@ -93,7 +93,9 @@ func home(
 
 		// Query for a random note
 		note, err := queries.RandomNote(r.Context())
-		if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			note = db.Note{}
+		} else if err != nil {
 			serverError(w, r, err, logger, showTrace)
 			return
 		}

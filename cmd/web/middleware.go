@@ -111,11 +111,20 @@ func logRequestMW(logger *slog.Logger) func(http.Handler) http.Handler {
 // csrfMW protects specific routes against CSRF.
 func csrfMW(next http.Handler) http.Handler {
 	csrfHandler := nosurf.New(next)
+
+	// Configure the CSRF handler
 	csrfHandler.SetBaseCookie(http.Cookie{
 		HttpOnly: true,
 		Path:     "/",
 		Secure:   os.Getenv("DOKKU_APP_TYPE") != "",
+		SameSite: http.SameSiteStrictMode,
 	})
+
+	// Set custom failure handler
+	csrfHandler.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		clientError(w, http.StatusTeapot)
+	}))
+
 	return csrfHandler
 }
 
