@@ -36,6 +36,10 @@
 
 {{if .Notes}}
 {{$timeLocation := .TimeLocation}}
+
+<p>
+  <strong>{{len .Notes}} note(s)</strong>
+</p>
 <ul>
   {{range .Notes}}
   <li>
@@ -44,6 +48,9 @@
     {{range .Tags}}
     <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
     {{end}}
+    <div class="prose">
+      {{.Note|markdownToHTML}}
+    </div>
   </li>
   {{end}}
 </ul>

@@ -52,6 +52,9 @@ var TemplateFuncs = template.FuncMap{
 	// URL functions
 	"urlSetParam": urlSetParam,
 	"urlDelParam": urlDelParam,
+
+	// generic functions
+	"stringContains": strings.Contains,
 }
 
 // timeInLocation returns a time in a different location timezone

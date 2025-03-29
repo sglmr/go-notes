@@ -73,6 +73,7 @@ func newTemplateData(r *http.Request, sessionManager *scs.SessionManager) map[st
 		"IsAuthenticated": isAuthenticated(r),
 		"Messages":        messages,
 		"TimeLocation":    timeLocation,
+		"urlPath":         r.URL.Path,
 		"Version":         vcs.Version(),
 	}
 }
