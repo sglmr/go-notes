@@ -51,6 +51,7 @@ func addRoutes(
 	mux.Handle("GET /list/", protected(listNotes(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /search/", protected(listNotes(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/", protected(viewNote(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /note/{id}/print/", protected(viewNote(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /new/", protected(noteFormGet(logger, devMode, sessionManager, queries)))
 	mux.Handle("POST /new/", protected(noteFormPOST(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/delete/", protected(deleteNote(logger, devMode, sessionManager, queries)))
@@ -379,10 +380,21 @@ func viewNote(
 		// Add the note data to the template data map
 		data["Note"] = note
 
-		// Render the page
-		if err := render.Page(w, http.StatusOK, data, "viewNote.tmpl"); err != nil {
-			serverError(w, r, err, logger, showTrace)
-			return
+		// Choose print vs regular view
+		switch {
+		// Render the page without the base template
+		case strings.HasSuffix(r.URL.Path, "/print/"):
+			if err := render.NamedTemplate(w, http.StatusOK, data, "base", "printBase.tmpl", "pages/viewNote.tmpl"); err != nil {
+				serverError(w, r, err, logger, showTrace)
+				return
+			}
+		default:
+			// Render the page
+			if err := render.Page(w, http.StatusOK, data, "viewNote.tmpl"); err != nil {
+				serverError(w, r, err, logger, showTrace)
+				return
+			}
+
 		}
 	}
 }

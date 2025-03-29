@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"maps"
 	"net/http"
 
 	"github.com/sglmr/go-notes/assets"
@@ -57,9 +58,7 @@ func NamedTemplateWithHeaders(w http.ResponseWriter, status int, data any, heade
 	}
 
 	// Set any provided custom HTTP headers
-	for key, value := range headers {
-		w.Header()[key] = value
-	}
+	maps.Copy(w.Header(), headers)
 
 	// Set the HTTP status code
 	w.WriteHeader(status)

@@ -175,7 +175,7 @@ func TestDeleteNotePost(t *testing.T) {
 	// Test delete requires csrf_token
 	data := url.Values{}
 	response = ts.post(t, "/note/n_001/delete/", data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Post a response with the csrf token
 	data.Set("csrf_token", token)
@@ -242,10 +242,10 @@ func TestNewNotePOST(t *testing.T) {
 	response := ts.post(t, "/new/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
-	// Test bad request with login
+	// Test bad request with login (but missing csrf)
 	ts.login(t)
 	response = ts.post(t, "/new/", data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Get a CSRF token for testing
 	response = ts.get(t, "/new/")
@@ -260,7 +260,7 @@ func TestNewNotePOST(t *testing.T) {
 
 	// Post should fail without a csrf token
 	response = ts.post(t, "/new/", data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Post should succeed with a csrf token
 	data.Set("csrf_token", csrfToken)
@@ -390,10 +390,10 @@ func TestEditNotePOST(t *testing.T) {
 	response := ts.post(t, url, data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
-	// Test bad request with login
+	// Test bad request with login (no csrf)
 	ts.login(t)
 	response = ts.post(t, url, data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Get a CSRF token for testing
 	response = ts.get(t, "/new/")
@@ -418,7 +418,7 @@ func TestEditNotePOST(t *testing.T) {
 
 	// Test bad request with csrf token
 	response = ts.post(t, url, data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Add the csrf token and try again
 	data.Set("csrf_token", csrfToken)
@@ -468,11 +468,11 @@ func TestTimeLocationGET(t *testing.T) {
 
 	// Try to update the location. Should fail without login
 	response = ts.post(t, "/time/", data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Try to update the location. Should fail without csrf
 	response = ts.post(t, "/time/", data)
-	assert.Equal(t, http.StatusBadRequest, response.statusCode)
+	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Update the timezone
 	data.Set("csrf_token", csrfToken)

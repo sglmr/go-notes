@@ -122,7 +122,7 @@ func csrfMW(next http.Handler) http.Handler {
 
 	// Set custom failure handler
 	csrfHandler.SetFailureHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		clientError(w, http.StatusTeapot)
+		clientError(w, http.StatusForbidden)
 	}))
 
 	return csrfHandler
