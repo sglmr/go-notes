@@ -8,7 +8,7 @@
     <span><a href="/list/?tag={{.}}">#{{.}}</a>, </span>
     {{end}}
 </div>
-{{if not (stringContains .urlPath "/print/")}}
+{{if not (stringContains .UrlPath "/print/")}}
 <div class="my-2">
     Created: {{timeInLocation .Note.CreatedAt .TimeLocation | longDateTime}}
     <br>Modified: {{timeInLocation .Note.ModifiedAt .TimeLocation | longDateTime}}
@@ -29,7 +29,7 @@
 </div>
 
 </div>
-{{if not (stringContains .urlPath "/print/")}}
+{{if not (stringContains .UrlPath "/print/")}}
 <div class="my-2">
     Created: {{timeInLocation .Note.CreatedAt .TimeLocation | longDateTime}}
     <br>Modified: {{timeInLocation .Note.ModifiedAt .TimeLocation | longDateTime}}

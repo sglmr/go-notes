@@ -6,7 +6,7 @@
 <p><strong>Check out a random note from the past.</strong></p>
 
 <h2><a href="/note/{{.Note.ID}}/">{{.Note.Title}}</a></h2>
-{{if not (stringContains .urlPath "/print/")}}
+{{if not (stringContains .UrlPath "/print/")}}
 <div class="my-2">
     Created: {{timeInLocation .Note.CreatedAt .TimeLocation | longDateTime}}
     <br>Modified: {{timeInLocation .Note.ModifiedAt .TimeLocation | longDateTime}}
