@@ -204,6 +204,7 @@ func authenticateMW(sessionManager *scs.SessionManager) func(http.Handler) http.
 			// If the user exists then create a new copy of the request
 			// with the isAuthenticatedContextKey set to true
 			ctx := context.WithValue(r.Context(), isAuthenticatedContextKey, true)
+			ctx = context.WithValue(ctx, isAnonyousContextKey, true)
 			r = r.WithContext(ctx)
 
 			// Call the next handler

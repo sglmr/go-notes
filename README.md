@@ -1,18 +1,6 @@
-# Go Start
+# go-notes
 
-A lightweight, feature-rich Go web application template with built-in security features, session management, email functionality, and more.
-
-This project template aims to reduce third party dependencies wherever possible. Most of the "code" for the project is in a single `cmd/web/main.go` file. Because (A) it's easier to give AI project context when most of the project is in a single file and (B) it's a simple starter template with minimal assumptions about how a project might evovle over time.
-
-This project does not currently include any configuration for a database.
-
-This project aims to avoid using receiver methods on handlers and other project functions. An application struct hanging off of every method is convenient and makes for pretty code, but there are also some negatives:
-
-- Surprise dependency issues during testing
-- Non-implicit dependencies
-- More restrictive coupling of project components and structure
-
-This project assumes you will be running it behind a reverse proxy service that handles HTTPS and certificates for you.
+A lightweight, feature-rich Go web application template for taking markdown notes.
 
 ## Features
 
@@ -22,7 +10,7 @@ This project assumes you will be running it behind a reverse proxy service that 
   - Secure headers
   - Request logging
   - CSRF protection
-  - Basic authentication
+  - Authentication
   - Static asset caching
   - Session management
 - **Email Support**: Send emails with configurable SMTP
@@ -70,18 +58,16 @@ Then we'll want to add the database dsn as an environment variable(s) in `~/.pro
 ```txt
 export NOTES_DB_DSN='postgres://notes_user:password@localhost/notes'
 export NOTES_TEST_DB_DSN='postgres://notes_user:password@localhost/notes'
-'''
+```
 
 Restart your computer or run `source $HOME/.profile` to load the environment variables.
 
 You can also now connect directly to psql with `psql $NOTES_DB_DSN `
 
-
 ### Prerequisites
 
 - Go 1.22 or higher
 - [Task](https://taskfile.dev/) for project management commands.
-
 
 ### Installation
 
@@ -93,12 +79,24 @@ cd gowebstart
 ```
 
 2. Replace "gowebstart" with your new project name.
-
 3. Build the project:
 
 ```bash
 task build
 ```
+
+### Environment Variables
+
+The required environment variables to work with the applicaiton:
+
+```sh
+
+AUTH_EMAIL='...'
+AUTH_PASSWORD_HASH='...'
+NOTES_DB_DSN='....' # Probably have to add a '?sslmode=disable' suffix if the database is on the same server as the application
+```
+
+
 
 ### Running the Server
 
@@ -116,24 +114,39 @@ This will start the server on the default address `0.0.0.0:8000`.
 
 ### Command-Line Options
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `-host` | Server host | `0.0.0.0` |
-| `-port` | Server port | `8000` or `PORT` env variable |
-| `-dev` | Development mode | `false` |
-| `-username` | Basic auth admin username | `admin` |
-| `-password` | Basic auth admin password | `password` (hashed) |
-| `-smtp-host` | SMTP server host | `` |
-| `-smtp-port` | SMTP server port | `25` |
-| `-smtp-username` | SMTP username | `` |
-| `-smtp-password` | SMTP password | `` |
-| `-smtp-from` | Email sender | `Example Name <no-reply@example.com>` |
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-host` | `0.0.0.0` | Server host address |
+| `-port` | `""` | Server port number |
+| `-dev` | `false` | Development mode - displays stack traces and enables verbose logging |
+| `-auth-email` | `$AUTH_EMAIL` env var | Email address for authentication |
+| `-auth-password-hash` | `$AUTH_PASSWORD_HASH` env var | Password hash for authentication |
+| `-db-dsn` | `$NOTES_DB_DSN` env var | PostgreSQL database connection string |
+| `-automigrate` | `true` | Automatically run pending database migrations on startup |
+| `-time-location` | `America/Los_Angeles` | Time zone location |
 
-Example with custom options:
+## Email/SMTP Configuration (not currently used)
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-smtp-host` | `""` | SMTP server hostname |
+| `-smtp-port` | `25` | SMTP server port |
+| `-smtp-username` | `""` | SMTP authentication username |
+| `-smtp-password` | `""` | SMTP authentication password |
+| `-smtp-from` | `Example Name <no-reply@example.com>` | Email sender name and address |
+
+### Example Usage
 
 ```bash
-./gowebstart -port=3000 -dev -smtp-host=smtp.example.com -smtp-port=587 -smtp-username=user -smtp-password=pass
+go run ./cmd/web -host=127.0.0.1 -port=8080 -dev=true -db-dsn="postgres://user:pass@localhost:5432/dbname"
 ```
+
+### Environment Variables
+
+Some flags can be set via environment variables:
+- `AUTH_EMAIL` - Used if `-auth-email` is not provided
+- `AUTH_PASSWORD_HASH` - Used if `-auth-password-hash` is not provided
+- `NOTES_DB_DSN` - Used if `-db-dsn` is not provided
 
 ## SMTP Emails
 
@@ -185,19 +198,28 @@ This pattern is useful for operations like:
 
 - `assets/`: Folder for all project embedded files
   - `emails/`: Email templates
+  - `migrations/`: Database migrations
   - `static/`: Static files like CSS, Javascript, etc
   - `templates/`: Templates to render to HTML pages for the application
     - `pages/`: Main web page content to load, like "home.tmpl" or "about.tmpl"
     - `partials/`: Page partials, like a nav bar, footer, etc
     - `base.tmpl`: Base template for all pages and partials
 - `cmd/`
+  - `hash/`:
+    - `main.go`: Helper app to generate argon2id password hashes.
   - `web/`
+    - `helpers.go`: authentication, flash message, and template helper functions
     - `main.go`: Entry point and server configuration
+    - `middleware.go`: Middleware for the project
+    - `routes.go`: Routes & handlers for the project.
+- `db/`: sqlc generated database code
 - `internal/`:
-  - `asserts/`: Testing assert functions
+  - `argon2id/`: Password hashing & functinos
+  - `assert/`: Testing assert functions
   - `email/`: SMTP email functionality
   - `funcs/`: Template functions
   - `render/`: Template rendering helpers
+  - `validator/`: Helpers for validating form data
   - `vcs/`: Version information
 
 ### Middleware
@@ -211,42 +233,19 @@ handler = LogRequestMW(logger)(handler)
 handler = sessionManager.LoadAndSave(handler)
 ```
 
-### Using Basic Authentication
+### Authentication
 
-The project contains a `BasicAuthMW` middleware that you can use to protect the application, or specific routes with HTTP basic authentication.
+The project has authentication for a single user. There are flags for `-auth-email` and `-auth-password-hash` that will by default read from environment variables for `AUTH_EMAIL` and `AUTH_PASSWORD_HASH`. Password haches can be generated with the `go run ./cmd/hash` program.
 
-You can try this out by visiting the [https://localhost:8000/protected/](https://localhost:8000/protected/) endpoint in any web browser and entering the default user name and password:
+There are dedicated handlers and templates for `/login/` and `/logout/` to log into or out of the application.
 
-```
-User name: admin
-Password:  password
-```
+There are two middlewares related to authentication:
 
-You can change the user name and password by setting the `--username` command-line flag and `--password` command-line flag. For example:
+1. `requireLoginMW` - This middleware checks if a user is authenticated. If they are not, it redirects the user to _/login/?next=/page/they/tried/to/visit_.
 
-```sh
-go run ./cmd/web -username='alice' --password='$2a$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-```
+2. `authenticateMW` - This middleware checks if a user is authenticated, and if so, sets an `isAuthenticatedContextKey` to `true`. Setting any user-related data as context keys in this middleware helps reduce session or other user-specific queries throughout the handlers.
 
-Note: You will probably need to wrap the username and password in `'` quotes to prevent your shell interpreting dollar and slash symbols as special characters.
-
-The value for the `-password` command-line flag should be a bcrypt hash of the password, not the plaintext password itself. An easy way to generate the bcrypt hash for a password is to use the `gophers.dev/cmds/bcrypt-tool` package like so:
-
-```sh
-go run gophers.dev/cmds/bcrypt-tool@latest hash 'your_pa55word'
-```
-
-There is also a helper "app" you can run in `cmd/hash/main.go` that prompts for and generates a password.
-
-```sh
-go run ./cmd/hash
-
-   Enter password: 
-Re-enter password:
-    Password hash: $2a$10$xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-If you want to change the default values for username and password you can do so by editing the default command-line flag values in the `cmd/web/main.go` file.
+**Templates**: Templates have access to a `{{.IsAuthenticated}} value to chec if the requester is signed in.
 
 ## Request Handlers
 

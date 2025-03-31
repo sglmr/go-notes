@@ -18,7 +18,10 @@ type contextKey string
 // Authentication Helpers
 //=============================================================================
 
-const isAuthenticatedContextKey = contextKey("isAuthenticated")
+const (
+	isAuthenticatedContextKey = contextKey("isAuthenticated")
+	isAnonyousContextKey      = contextKey("isAnonymous")
+)
 
 // isAuthenticated returns true when a user is authenticated. The function checks the
 // request context for a isAuthenticatedContextKey value
