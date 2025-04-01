@@ -115,3 +115,12 @@
     }
 
 }
+
+
+@layer components {
+    /* For checklists */
+    ul:where(:has(li > input[type="checkbox"])) {
+        list-style-type: none !important;
+        margin-inline-start: 0em !important;
+      }
+  }
