@@ -42,12 +42,14 @@
 </p>
 <ul>
   {{range .Notes}}
-  <li>
-    {{timeInLocation .CreatedAt $timeLocation | formatTime "Jan 2006"}}: <a href="/note/{{.ID}}/">{{.Title}}</a>
+  <li class="mt-4">
+    <h3><a href="/note/{{.ID}}/">{{.Title}}</a></h3>
     <br>
-    {{range .Tags}}
-    <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
-    {{end}}
+    <span>{{timeInLocation .CreatedAt $timeLocation | formatTime "Jan 2006"}}:
+      {{range .Tags}}
+      <a href="/list/?tag={{.}}">{{.}}</a>,
+      {{end}}
+    </span>
     <div class="prose">
       {{.Note|markdownToHTML}}
     </div>
