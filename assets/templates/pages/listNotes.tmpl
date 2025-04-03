@@ -42,8 +42,8 @@
 </p>
 <ul>
   {{range .Notes}}
-  <li class="mt-4">
-    <h3><a href="/note/{{.ID}}/">{{.Title}}</a></h3>
+  <li class="mt-4 border-t-2">
+    <h3 class="mb-0"><a href="/note/{{.ID}}/">{{.Title}}</a></h3>
     <br>
     <span>{{timeInLocation .CreatedAt $timeLocation | formatTime "Jan 2006"}}:
       {{range .Tags}}
