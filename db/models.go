@@ -19,6 +19,12 @@ type Note struct {
 	Tags       []string
 }
 
+type Session struct {
+	Token  string
+	Data   []byte
+	Expiry time.Time
+}
+
 type TagSummary struct {
 	TagName   interface{}
 	NoteCount int64

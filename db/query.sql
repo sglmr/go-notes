@@ -7,7 +7,7 @@ limit 1;
 select *
 from notes
 where archive != TRUE
-order by modified_at desc;
+order by created_at desc;
 -- name: ListFavoriteNotes :many
 select *
 from notes
@@ -17,7 +17,7 @@ order by modified_at desc;
 select *
 from notes
 where archive = TRUE
-order by modified_at desc;
+order by created_at desc;
 -- name: ListAllNotes :many
 select *
 from notes
@@ -57,23 +57,23 @@ WHERE (
         OR ('id' || ' ' || title || ' ' || note) ILIKE '%' || @query::text || '%'
     )
     AND (
-        (@tags::text[])[1] = ''
+        (@tags::text []) [1] = ''
         OR tags @> @tags::text []
     )
-    AND (archive IS FALSE OR @archived::bool IS TRUE)
-    AND (favorite IS TRUE or @favorites::bool IS FALSE)
-ORDER BY CASE
-        WHEN @query::text = '' THEN 3
-        WHEN id ILIKE '%' || @query::text || '%' THEN 0
-        WHEN title ILIKE '%' || @query::text || '%' THEN 1
-        ELSE 2
-    END,
-    modified_at DESC;
+    AND (
+        archive IS FALSE
+        OR @archived::bool IS TRUE
+    )
+    AND (
+        favorite IS TRUE
+        or @favorites::bool IS FALSE
+    )
+ORDER by created_at DESC;
 -- name: FindNotesWithTags :many
 SELECT *
 FROM notes
 WHERE tags @> $1::text []
-ORDER BY modified_at DESC;
+ORDER BY created_at DESC;
 -- name: GetTagsWithCounts :many
 SELECT *
 FROM tag_summary
@@ -92,8 +92,13 @@ insert into notes (
 values ($1, $2, $3, $4, $5, $6, $7, $8)
 returning *;
 -- name: RandomNote :one
-SELECT * FROM notes
-OFFSET floor(random() * (select count(*) from notes))
+SELECT *
+FROM notes OFFSET floor(
+        random() * (
+            select count(*)
+            from notes
+        )
+    )
 limit 1;
 -- name: ArchiveNote :exec
 update notes

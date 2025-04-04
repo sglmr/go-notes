@@ -84,7 +84,7 @@ const findNotesWithTags = `-- name: FindNotesWithTags :many
 SELECT id, title, note, archive, favorite, created_at, modified_at, tags
 FROM notes
 WHERE tags @> $1::text []
-ORDER BY modified_at DESC
+ORDER BY created_at DESC
 `
 
 func (q *Queries) FindNotesWithTags(ctx context.Context, dollar_1 []string) ([]Note, error) {
@@ -255,7 +255,7 @@ const listArchivedNotes = `-- name: ListArchivedNotes :many
 select id, title, note, archive, favorite, created_at, modified_at, tags
 from notes
 where archive = TRUE
-order by modified_at desc
+order by created_at desc
 `
 
 func (q *Queries) ListArchivedNotes(ctx context.Context) ([]Note, error) {
@@ -327,7 +327,7 @@ const listNotes = `-- name: ListNotes :many
 select id, title, note, archive, favorite, created_at, modified_at, tags
 from notes
 where archive != TRUE
-order by modified_at desc
+order by created_at desc
 `
 
 func (q *Queries) ListNotes(ctx context.Context) ([]Note, error) {
@@ -360,8 +360,13 @@ func (q *Queries) ListNotes(ctx context.Context) ([]Note, error) {
 }
 
 const randomNote = `-- name: RandomNote :one
-SELECT id, title, note, archive, favorite, created_at, modified_at, tags FROM notes
-OFFSET floor(random() * (select count(*) from notes))
+SELECT id, title, note, archive, favorite, created_at, modified_at, tags
+FROM notes OFFSET floor(
+        random() * (
+            select count(*)
+            from notes
+        )
+    )
 limit 1
 `
 
@@ -389,18 +394,18 @@ WHERE (
         OR ('id' || ' ' || title || ' ' || note) ILIKE '%' || $1::text || '%'
     )
     AND (
-        ($2::text[])[1] = ''
+        ($2::text []) [1] = ''
         OR tags @> $2::text []
     )
-    AND (archive IS FALSE OR $3::bool IS TRUE)
-    AND (favorite IS TRUE or $4::bool IS FALSE)
-ORDER BY CASE
-        WHEN $1::text = '' THEN 3
-        WHEN id ILIKE '%' || $1::text || '%' THEN 0
-        WHEN title ILIKE '%' || $1::text || '%' THEN 1
-        ELSE 2
-    END,
-    modified_at DESC
+    AND (
+        archive IS FALSE
+        OR $3::bool IS TRUE
+    )
+    AND (
+        favorite IS TRUE
+        or $4::bool IS FALSE
+    )
+ORDER by created_at DESC
 `
 
 type SearchNotesParams struct {
