@@ -282,24 +282,10 @@ func listNotes(
 	sessionManager *scs.SessionManager,
 	queries *db.Queries,
 ) http.HandlerFunc {
-	type searchQuery struct {
-		Q         string
-		Tag       string
-		Favorites bool
-		Archived  bool
-	}
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Check if there is a search query parameter
-		query := searchQuery{
-			Q:         r.URL.Query().Get("q"),
-			Tag:       r.URL.Query().Get("tag"),
-			Favorites: len(r.URL.Query().Get("favorites")) > 0,
-			Archived:  len(r.URL.Query().Get("archived")) > 0,
-		}
-
-		logger.Debug("list notes search", "query", query)
-
 		var params db.SearchNotesParams
+
+		// Slightly different behaviour for /list/ and /search/
 		switch r.URL.Path {
 		case "/list/":
 			params = db.SearchNotesParams{
