@@ -34,15 +34,6 @@
     Created: {{timeInLocation .Note.CreatedAt .TimeLocation | longDateTime}}
     <br>Modified: {{timeInLocation .Note.ModifiedAt .TimeLocation | longDateTime}}
 </div>
-
-<div class="flex gap-x-4 my-2 text-sm">
-    <a href="/note/{{.Note.ID}}/edit/" class="outline py-0.5 px-2 rounded-md">
-        Edit</a>
-    <a href="/note/{{.Note.ID}}/print/" class="outline py-0.5 px-2 rounded-md">
-        Print</a>
-    <a href="/note/{{.Note.ID}}/delete/" class="outline py-0.5 px-2 rounded-md">
-        Delete</a>
-</div>
 {{end}}
 
 {{end}}

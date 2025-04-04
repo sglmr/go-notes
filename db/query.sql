@@ -57,16 +57,16 @@ WHERE (
         OR ('id' || ' ' || title || ' ' || note) ILIKE '%' || @query::text || '%'
     )
     AND (
-        (@tags::text []) [1] = ''
+        @tags::text [] = '{""}' -- This matches the Go []string{""}
+        OR @tags::text [] = '{}'
         OR tags @> @tags::text []
     )
-    AND (
-        archive = @archived::bool
-    )
+    AND (archive = @archived::bool)
     AND (
         favorite = @favorites::bool
+        OR @favorites::bool = FALSE
     )
-ORDER by created_at DESC;
+ORDER BY created_at DESC;
 -- name: FindNotesWithTags :many
 SELECT *
 FROM notes

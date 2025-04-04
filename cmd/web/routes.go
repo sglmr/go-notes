@@ -283,29 +283,11 @@ func listNotes(
 	queries *db.Queries,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var params db.SearchNotesParams
-
-		// Slightly different behaviour for /list/ and /search/
-		switch r.URL.Path {
-		case "/list/":
-			params = db.SearchNotesParams{
-				Query:     "",
-				Tags:      []string{},
-				Archived:  false,
-				Favorites: true,
-			}
-		case "/search/":
-			// Search for notes
-			params = db.SearchNotesParams{
-				Query:     r.URL.Query().Get("q"),
-				Tags:      []string{r.URL.Query().Get("tag")},
-				Archived:  len(r.URL.Query().Get("archived")) > 0,
-				Favorites: len(r.URL.Query().Get("favorites")) > 0,
-			}
-
-		default:
-			clientError(w, http.StatusNotFound)
-			return
+		params := db.SearchNotesParams{
+			Query:     r.URL.Query().Get("q"),
+			Tags:      []string{r.URL.Query().Get("tag")},
+			Archived:  len(r.URL.Query().Get("archived")) > 0,
+			Favorites: len(r.URL.Query().Get("favorites")) > 0,
 		}
 
 		logger.Debug("notes params", "urlPath", r.URL.Path, "params", params)

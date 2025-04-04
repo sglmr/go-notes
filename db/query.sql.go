@@ -394,16 +394,16 @@ WHERE (
         OR ('id' || ' ' || title || ' ' || note) ILIKE '%' || $1::text || '%'
     )
     AND (
-        ($2::text []) [1] = ''
+        $2::text [] = '{""}' -- This matches the Go []string{""}
+        OR $2::text [] = '{}'
         OR tags @> $2::text []
     )
-    AND (
-        archive = $3::bool
-    )
+    AND (archive = $3::bool)
     AND (
         favorite = $4::bool
+        OR $4::bool = FALSE
     )
-ORDER by created_at DESC
+ORDER BY created_at DESC
 `
 
 type SearchNotesParams struct {
