@@ -61,12 +61,10 @@ WHERE (
         OR tags @> @tags::text []
     )
     AND (
-        archive IS FALSE
-        OR @archived::bool IS TRUE
+        archive = @archived::bool
     )
     AND (
-        favorite IS TRUE
-        or @favorites::bool IS FALSE
+        favorite = @favorites::bool
     )
 ORDER by created_at DESC;
 -- name: FindNotesWithTags :many

@@ -398,12 +398,10 @@ WHERE (
         OR tags @> $2::text []
     )
     AND (
-        archive IS FALSE
-        OR $3::bool IS TRUE
+        archive = $3::bool
     )
     AND (
-        favorite IS TRUE
-        or $4::bool IS FALSE
+        favorite = $4::bool
     )
 ORDER by created_at DESC
 `

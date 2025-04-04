@@ -299,34 +299,35 @@ func listNotes(
 
 		logger.Debug("list notes search", "query", query)
 
-		var notes []db.Note
-
+		var params db.SearchNotesParams
 		switch r.URL.Path {
 		case "/list/":
-			// List of all notes
-			n, err := queries.ListNotes(r.Context())
-			if err != nil {
-				serverError(w, r, err, logger, showTrace)
-				return
+			params = db.SearchNotesParams{
+				Query:     "",
+				Tags:      []string{},
+				Archived:  false,
+				Favorites: true,
 			}
-			notes = n
 		case "/search/":
 			// Search for notes
-			params := db.SearchNotesParams{
-				Query:     query.Q,
-				Tags:      []string{query.Tag},
-				Archived:  query.Archived,
-				Favorites: query.Favorites,
+			params = db.SearchNotesParams{
+				Query:     r.URL.Query().Get("q"),
+				Tags:      []string{r.URL.Query().Get("tag")},
+				Archived:  len(r.URL.Query().Get("archived")) > 0,
+				Favorites: len(r.URL.Query().Get("favorites")) > 0,
 			}
-			logger.Debug("tag search params", "params", params)
-			n, err := queries.SearchNotes(r.Context(), params)
-			if err != nil {
-				serverError(w, r, err, logger, showTrace)
-				return
-			}
-			notes = n
+
 		default:
 			clientError(w, http.StatusNotFound)
+			return
+		}
+
+		logger.Debug("notes params", "urlPath", r.URL.Path, "params", params)
+
+		// Query the database for the notes
+		notes, err := queries.SearchNotes(r.Context(), params)
+		if err != nil {
+			serverError(w, r, err, logger, showTrace)
 			return
 		}
 
@@ -337,11 +338,14 @@ func listNotes(
 			return
 		}
 
-		logger.Debug("after queries", "noteCount", len(notes), "tagCount", len(tagList))
+		logger.Debug("query counts", "notes", len(notes), "tags", len(tagList))
 
 		// Prepare template data
 		data := newTemplateData(r, sessionManager)
-		data["Query"] = query
+		data["Q"] = r.URL.Query().Get("q")
+		data["Tag"] = r.URL.Query().Get("tag")
+		data["Favorites"] = params.Favorites
+		data["Archived"] = params.Archived
 		data["Notes"] = notes
 		data["TagList"] = tagList
 

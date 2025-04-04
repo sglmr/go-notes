@@ -6,10 +6,10 @@
 
 <form method="GET" action="/search/" style="max-width:33vw">
   <!-- text search input -->
-  <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Query.Q}}">
+  <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Q}}">
 
   <!-- tag list dropdown -->
-  {{ $tag := .Query.Tag}}
+  {{ $tag := .Tag}}
   <select name="tag" id="tag" aria-label="Select a tag...">
     <option {{if eq (len $tag) 0}}selected{{end}} value="">
       Select a tag...
@@ -22,10 +22,10 @@
   <!-- checkboxes -->
   <div>
     <label for="favorites">
-      <input type="checkbox" id="favorites" name="favorites" {{if .Query.Favorites}}checked{{end}} />
+      <input type="checkbox" id="favorites" name="favorites" {{if .Favorites}}checked{{end}} />
       Favorites</label>
     <label for="archived">
-      <input type="checkbox" id="archived" name="archived" {{if .Query.Archived}}checked{{end}} />
+      <input type="checkbox" id="archived" name="archived" {{if .Archived}}checked{{end}} />
       Include Archived</label>
   </div>
 
