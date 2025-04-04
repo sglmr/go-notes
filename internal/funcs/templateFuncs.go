@@ -178,7 +178,7 @@ func markdownToHTML(content string) template.HTML {
 			extension.GFM,
 			extension.Footnote,
 			highlighting.NewHighlighting(
-				highlighting.WithStyle("friendly"),
+				highlighting.WithStyle("catppuccin-frappe"),
 				highlighting.WithFormatOptions(
 					chroma.WithLineNumbers(true),
 				),
