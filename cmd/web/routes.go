@@ -367,7 +367,7 @@ func refreshNoteTags(
 
 		putFlashMessage(r, flashSuccess, "Queued background task to update notes.", sessionManager)
 
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/notes/list/", http.StatusSeeOther)
 	}
 }
 
