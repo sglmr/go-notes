@@ -85,7 +85,7 @@ func newTemplateData(r *http.Request, sessionManager *scs.SessionManager) map[st
 // The hashtags are extracted without the # symbol.
 func extractTags(text string) []string {
 	// Compile the regular expression
-	re := regexp.MustCompile(`(\s|.)#([-a-z0-9]*[a-z0-9])`)
+	re := regexp.MustCompile(`(^|\s|.)#([-a-z0-9]*[a-z][-a-z0-9]*)`)
 
 	// Find all matches of the regex in the input text
 	// The second argument -1 means return all matches
@@ -106,6 +106,9 @@ func extractTags(text string) []string {
 		case match[1] == `"`:
 			// Exclude links to ids in a href tags
 			// ex: <a href="#heading-link">link</a>
+			continue
+		case len(match[2]) <= 1:
+			// Skip tags that are 1 char or less
 			continue
 		default:
 			result = append(result, match[2])
