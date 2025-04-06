@@ -525,14 +525,14 @@ func importNote(
 		favorite := len(r.FormValue("favorite")) > 0
 
 		// Convert the value to time.Time
-		createdAt, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("created_at"), timeLocation)
+		createdAt, err := time.ParseInLocation(time.RFC3339, r.FormValue("created_at"), timeLocation)
 		if err != nil || createdAt.IsZero() {
 			fmt.Fprintln(w, "missing or invalid created_at")
 			clientError(w, http.StatusUnprocessableEntity)
 			return
 		}
 		// Convert the value to time.Time
-		modifiedAt, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("modified_at"), timeLocation)
+		modifiedAt, err := time.ParseInLocation(time.RFC3339, r.FormValue("modified_at"), timeLocation)
 		if err != nil || modifiedAt.IsZero() {
 			fmt.Fprintln(w, "missing or invalid modified_at")
 			clientError(w, http.StatusUnprocessableEntity)
