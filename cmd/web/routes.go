@@ -354,9 +354,10 @@ func refreshNoteTags(
 					}
 					_, err := queries.UpdateNoteTags(context.TODO(), params)
 					if err != nil {
-						return err
+						logger.Error("update note tags error", "note", note.Title, "note_id", note.ID, "error", err)
+					} else {
+						logger.Debug("updated note tags", "note", note.Title, "note_id", note.ID)
 					}
-					logger.Debug("updated note tags", "note", note.Title, "note_id", note.ID)
 				}
 				return nil
 			})

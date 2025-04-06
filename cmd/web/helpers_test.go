@@ -6,6 +6,8 @@ import (
 )
 
 func TestExtractTags(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		input    string
@@ -16,6 +18,12 @@ func TestExtractTags(t *testing.T) {
 			input:    "",
 			expected: []string{},
 		},
+		{
+			name:     "#1 is not a tag",
+			input:    "#1 is not a #1 tag",
+			expected: []string{},
+		},
+
 		{
 			name:     "ticket # not a tag",
 			input:    "asdfasdf bug#588580] sadfasd",
@@ -94,7 +102,11 @@ func TestExtractTags(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			result := extractTags(tt.input)
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("extractTags(%q) = %v, want %v", tt.input, result, tt.expected)

@@ -8,6 +8,9 @@ select *
 from notes
 where archive != TRUE
 order by created_at desc;
+-- name: ListAllNotes :many
+select *
+from notes;
 -- name: ListFavoriteNotes :many
 select *
 from notes
@@ -18,10 +21,6 @@ select *
 from notes
 where archive = TRUE
 order by created_at desc;
--- name: ListAllNotes :many
-select *
-from notes
-order by modified_at desc;
 -- name: CreateNote :one
 insert into notes (
         id,

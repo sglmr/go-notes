@@ -219,7 +219,6 @@ func (q *Queries) ImportNote(ctx context.Context, arg ImportNoteParams) (Note, e
 const listAllNotes = `-- name: ListAllNotes :many
 select id, title, note, archive, favorite, created_at, modified_at, tags
 from notes
-order by modified_at desc
 `
 
 func (q *Queries) ListAllNotes(ctx context.Context) ([]Note, error) {
