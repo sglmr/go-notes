@@ -51,7 +51,7 @@ func addRoutes(
 	mux.Handle("GET /", protected(home(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /notes/list/", protected(listNotes(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /notes/search/", protected(listNotes(logger, devMode, sessionManager, queries)))
-	mux.Handle("GET /notes/update-tags/", protected(refreshNoteTags(logger, wg, devMode, sessionManager, queries)))
+	mux.Handle("GET /notes/refresh-tags/", protected(refreshNoteTags(logger, wg, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/", protected(viewNote(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/print/", protected(viewNote(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /notes/new/", protected(noteFormGet(logger, devMode, sessionManager, queries)))
