@@ -340,8 +340,11 @@ func refreshNoteTags(
 		backgroundTask(
 			wg, logger,
 			func() error {
+				ctx, ctxCancel := context.WithTimeout(context.Background(), time.Minute*2)
+				defer ctxCancel()
+
 				// Get a list of all the notes
-				notes, err := queries.ListAllNotes(r.Context())
+				notes, err := queries.ListAllNotes(ctx)
 				if err != nil {
 					return err
 				}
@@ -352,7 +355,7 @@ func refreshNoteTags(
 						ID:   note.ID,
 						Tags: extractTags(note.Note),
 					}
-					_, err := queries.UpdateNoteTags(context.TODO(), params)
+					_, err := queries.UpdateNoteTags(ctx, params)
 					if err != nil {
 						logger.Error("update note tags error", "note", note.Title, "note_id", note.ID, "error", err)
 					} else {
