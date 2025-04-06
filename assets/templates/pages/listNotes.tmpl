@@ -4,7 +4,7 @@
 <h1>Notes</h1>
 
 
-<form method="GET" action="/search/" style="max-width:33vw">
+<form method="GET" action="/notes/search/" style="max-width:33vw">
   <!-- text search input -->
   <input type="text" name="q" id="q" placeholder="Search notes..." value="{{.Q}}">
 
@@ -65,7 +65,7 @@
       {{if .Tags}}
       <span>
         {{range .Tags}}
-        <a href="/list/?tag={{.}}">{{.}}</a>,
+        <a href="/notes/list/?tag={{.}}">{{.}}</a>,
         {{end}}
       </span>
       {{else}}

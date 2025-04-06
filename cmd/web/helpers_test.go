@@ -17,6 +17,11 @@ func TestExtractTags(t *testing.T) {
 			expected: []string{},
 		},
 		{
+			name:     "ticket # not a tag",
+			input:    "asdfasdf bug#588580] sadfasd",
+			expected: []string{},
+		},
+		{
 			name:     "No hashtags",
 			input:    "This is a text without hashtags",
 			expected: []string{},

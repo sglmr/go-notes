@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/subtle"
 	"errors"
 	"fmt"
@@ -48,12 +49,13 @@ func addRoutes(
 		return requireLoginMW()(dynamic(next))
 	}
 	mux.Handle("GET /", protected(home(logger, devMode, sessionManager, queries)))
-	mux.Handle("GET /list/", protected(listNotes(logger, devMode, sessionManager, queries)))
-	mux.Handle("GET /search/", protected(listNotes(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /notes/list/", protected(listNotes(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /notes/search/", protected(listNotes(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /notes/update-tags/", protected(refreshNoteTags(logger, wg, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/", protected(viewNote(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/print/", protected(viewNote(logger, devMode, sessionManager, queries)))
-	mux.Handle("GET /new/", protected(noteFormGet(logger, devMode, sessionManager, queries)))
-	mux.Handle("POST /new/", protected(noteFormPOST(logger, devMode, sessionManager, queries)))
+	mux.Handle("GET /notes/new/", protected(noteFormGet(logger, devMode, sessionManager, queries)))
+	mux.Handle("POST /notes/new/", protected(noteFormPOST(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/delete/", protected(deleteNote(logger, devMode, sessionManager, queries)))
 	mux.Handle("POST /note/{id}/delete/", protected(deleteNote(logger, devMode, sessionManager, queries)))
 	mux.Handle("GET /note/{id}/edit/", protected(noteFormGet(logger, devMode, sessionManager, queries)))
@@ -325,6 +327,46 @@ func listNotes(
 	}
 }
 
+// refreshNoteTags refreshes all the note tags on a get request
+func refreshNoteTags(
+	logger *slog.Logger,
+	wg *sync.WaitGroup,
+	showTrace bool,
+	sessionManager *scs.SessionManager,
+	queries *db.Queries,
+) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Update the note tags in the background
+		backgroundTask(
+			wg, logger,
+			func() error {
+				// Get a list of all the notes
+				notes, err := queries.ListAllNotes(r.Context())
+				if err != nil {
+					return err
+				}
+
+				// update the tag for each note
+				for _, note := range notes {
+					params := db.UpdateNoteTagsParams{
+						ID:   note.ID,
+						Tags: extractTags(note.Note),
+					}
+					_, err := queries.UpdateNoteTags(context.TODO(), params)
+					if err != nil {
+						return err
+					}
+					logger.Debug("updated note tags", "note", note.Title, "note_id", note.ID)
+				}
+				return nil
+			})
+
+		putFlashMessage(r, flashSuccess, "Queued background task to update notes.", sessionManager)
+
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+	}
+}
+
 // viewNote displays a single note
 func viewNote(
 	logger *slog.Logger,
@@ -410,7 +452,7 @@ func deleteNote(
 				serverError(w, r, err, logger, showTrace)
 			}
 
-			http.Redirect(w, r, "/list/", http.StatusSeeOther)
+			http.Redirect(w, r, "/notes/list/", http.StatusSeeOther)
 			return
 
 		default:

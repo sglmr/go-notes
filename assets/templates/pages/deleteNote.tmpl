@@ -14,7 +14,7 @@
         <h1>{{.Note.Title}}</h1>
         <div>
             {{range .Note.Tags}}
-        <span><a href="/list/?tag={{.}}">{{.}}</a>, </span>
+        <span><a href="/notes/list/?tag={{.}}">{{.}}</a>, </span>
         {{end}}
         </div>
         <div>Created: {{.Note.CreatedAt|longDateTime}}</div>

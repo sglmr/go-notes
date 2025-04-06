@@ -105,12 +105,12 @@ func TestListNotes(t *testing.T) {
 	defer ts.Close()
 
 	// Test unauthorized without login
-	response := ts.get(t, "/list/")
+	response := ts.get(t, "/notes/list/")
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test OK with login
 	ts.login(t)
-	response = ts.get(t, "/list/")
+	response = ts.get(t, "/notes/list/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the search form fields
@@ -181,7 +181,7 @@ func TestDeleteNotePost(t *testing.T) {
 	data.Set("csrf_token", token)
 	response = ts.post(t, "/note/n_001/delete/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
-	assert.Equal(t, "/list/", response.header.Get("Location"))
+	assert.Equal(t, "/notes/list/", response.header.Get("Location"))
 
 	// Validate the post doesn't exist anymore
 	response = ts.get(t, "/note/n_001/")
@@ -200,7 +200,7 @@ func TestHome(t *testing.T) {
 	ts.login(t)
 	response = ts.get(t, "/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
-	assert.StringIn(t, "Example", response.body)
+	assert.StringIn(t, "Home", response.body)
 }
 
 func TestNewNoteGET(t *testing.T) {
@@ -209,12 +209,12 @@ func TestNewNoteGET(t *testing.T) {
 	defer ts.Close()
 
 	// Test unauthorized without login
-	response := ts.get(t, "/new/")
+	response := ts.get(t, "/notes/new/")
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test OK with login
 	ts.login(t)
-	response = ts.get(t, "/new/")
+	response = ts.get(t, "/notes/new/")
 	assert.Equal(t, http.StatusOK, response.statusCode)
 
 	// Has the form fields
@@ -239,16 +239,16 @@ func TestNewNotePOST(t *testing.T) {
 	data := url.Values{}
 
 	// Test unauthorized without login
-	response := ts.post(t, "/new/", data)
+	response := ts.post(t, "/notes/new/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Test bad request with login (but missing csrf)
 	ts.login(t)
-	response = ts.post(t, "/new/", data)
+	response = ts.post(t, "/notes/new/", data)
 	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Get a CSRF token for testing
-	response = ts.get(t, "/new/")
+	response = ts.get(t, "/notes/new/")
 	csrfToken := response.csrfToken(t)
 
 	// Try a full request without the csrf token
@@ -259,12 +259,12 @@ func TestNewNotePOST(t *testing.T) {
 	data.Set("note", `just #testing with #fishing and not [link](#link) or href="#that"`)
 
 	// Post should fail without a csrf token
-	response = ts.post(t, "/new/", data)
+	response = ts.post(t, "/notes/new/", data)
 	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Post should succeed with a csrf token
 	data.Set("csrf_token", csrfToken)
-	response = ts.post(t, "/new/", data)
+	response = ts.post(t, "/notes/new/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Check the reditect location
@@ -292,14 +292,14 @@ func TestNewNotePOST(t *testing.T) {
 
 	// Try another new post without the created_at, it should fail
 	data.Del("created_at")
-	response = ts.post(t, "/new/", data)
+	response = ts.post(t, "/notes/new/", data)
 	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
 
 	// Try another without any note content, it should fail
 	data.Set("created_at", time.Now().In(timeLocation).Format("2006-01-02T15:04"))
 	data.Del("note")
 
-	response = ts.post(t, "/new/", data)
+	response = ts.post(t, "/notes/new/", data)
 	assert.Equal(t, http.StatusUnprocessableEntity, response.statusCode)
 
 	// Try a new note with more minimal data
@@ -309,7 +309,7 @@ func TestNewNotePOST(t *testing.T) {
 	data.Del("archive")
 
 	// Should be okay
-	response = ts.post(t, "/new/", data)
+	response = ts.post(t, "/notes/new/", data)
 	assert.Equal(t, http.StatusSeeOther, response.statusCode)
 
 	// Check the reditect location
@@ -396,7 +396,7 @@ func TestEditNotePOST(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, response.statusCode)
 
 	// Get a CSRF token for testing
-	response = ts.get(t, "/new/")
+	response = ts.get(t, "/notes/new/")
 	csrfToken := response.csrfToken(t)
 
 	// Try a full request without the csrf token

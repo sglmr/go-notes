@@ -46,6 +46,12 @@ set title = $2,
     modified_at = NOW()
 where id = $1
 returning *;
+-- name: UpdateNoteTags :one
+update notes
+set tags = $2,
+    modified_at = NOW()
+where id = $1
+returning *;
 -- name: DeleteNote :exec
 delete from notes
 where id = $1;

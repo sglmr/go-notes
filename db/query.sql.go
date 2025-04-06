@@ -493,3 +493,32 @@ func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) (Note, e
 	)
 	return i, err
 }
+
+const updateNoteTags = `-- name: UpdateNoteTags :one
+update notes
+set tags = $2,
+    modified_at = NOW()
+where id = $1
+returning id, title, note, archive, favorite, created_at, modified_at, tags
+`
+
+type UpdateNoteTagsParams struct {
+	ID   string
+	Tags []string
+}
+
+func (q *Queries) UpdateNoteTags(ctx context.Context, arg UpdateNoteTagsParams) (Note, error) {
+	row := q.db.QueryRow(ctx, updateNoteTags, arg.ID, arg.Tags)
+	var i Note
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Note,
+		&i.Archive,
+		&i.Favorite,
+		&i.CreatedAt,
+		&i.ModifiedAt,
+		&i.Tags,
+	)
+	return i, err
+}
