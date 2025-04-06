@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"slices"
 
 	"github.com/alexedwards/scs/v2"
 	"github.com/justinas/nosurf"
@@ -109,6 +110,9 @@ func extractTags(text string) []string {
 			continue
 		case len(match[2]) <= 1:
 			// Skip tags that are 1 char or less
+			continue
+		case slices.Contains(result, match[2]):
+			// Skip tags that are already in the result slice
 			continue
 		default:
 			result = append(result, match[2])

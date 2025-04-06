@@ -27,6 +27,11 @@ func TestExtractTags(t *testing.T) {
 			expected: []string{"hashtag"},
 		},
 		{
+			name:     "No duplicate hashtags",
+			input:    "This #hashtag is a #hashtag",
+			expected: []string{"hashtag"},
+		},
+		{
 			name:     "Multiple valid hashtags",
 			input:    "This is #one and this is #two",
 			expected: []string{"one", "two"},
